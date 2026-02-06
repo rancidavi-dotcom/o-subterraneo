@@ -60,6 +60,9 @@ function handleMessage(ws, data) {
             break;
 
         case 'player_update':
+            // Log silencioso para depuração (opcional, remova se der muito spam)
+            // console.log(`Atualização de ${ws.playerName} na sala ${code}`);
+            
             if (ws === room.host) {
                 if (payload.gameState) {
                     room.gameState = payload.gameState;
