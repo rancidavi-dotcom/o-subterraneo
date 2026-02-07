@@ -41,7 +41,15 @@
         <nav>
             <button id="btn-continue-multiplayer" style="display: none; background: #228b22;" onclick="lobbyContinueRoom()">Continuar lobby: <span id="multi-colony-name"></span></button>
             <button onclick="lobbyCreateRoom()" style="background: #2b532b;">Criar Nova Sala (Novo Mundo)</button>
-            <button onclick="lobbyJoinPrompt()">Entrar em Sala</button>
+            
+            <div style="margin: 15px 0; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #555;">
+                <label style="color: #aaa; font-size: 0.8em; display: block; margin-bottom: 8px;">ENTRAR EM UMA SALA:</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="join-room-code-input" placeholder="CÓDIGO" maxlength="5" style="width: 100px; background: #111; border: 1px solid #777; color: #fff; padding: 8px; border-radius: 4px; font-family: monospace; text-transform: uppercase; text-align: center;">
+                    <button onclick="lobbyJoinDirect()" style="flex: 1; background: #4a148c; padding: 5px; min-width: auto; margin: 0; font-size: 0.9em;">ENTRAR</button>
+                </div>
+            </div>
+
             <button onclick="showMenu('main-menu')">Voltar</button>
         </nav>
     </div>
@@ -331,6 +339,27 @@
             connectLobby((ws) => ws.send(JSON.stringify({
                 type: 'create_room', payload: { id: PLAYER_ID, name: playerNickname }
             })));
+        }
+
+        function lobbyJoinDirect() {
+            const input = document.getElementById('join-room-code-input');
+            const code = input.value.trim().toUpperCase();
+            
+            if (!code || code.length < 5) {
+                alert("Digite um código de 5 caracteres!");
+                return;
+            }
+
+            console.log("Botão Entrar Direto clicado para sala:", code);
+            isContinuing = false;
+            connectLobby((ws) => {
+                console.log("Enviando join_room para:", code);
+                ws.send(JSON.stringify({
+                    type: 'join_room', code: code, payload: { id: PLAYER_ID, name: playerNickname }
+                }));
+                currentRoomCode = code;
+                isHost = false;
+            });
         }
 
         function lobbyJoinPrompt() {
