@@ -400,17 +400,24 @@
         }
 
         function showMenu(menuId) {
+            // Esconde todas as telas de menu
             document.querySelectorAll('.menu-screen').forEach(m => m.style.display = 'none');
-            document.getElementById('nickname-modal').style.display = 'none';
+            
+            // Esconde todos os modais (Opções, Nickname, etc)
+            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+
             if (menuId) {
-                document.getElementById(menuId).style.display = 'block';
+                const target = document.getElementById(menuId);
+                if (target) {
+                    // Se for um modal, usa flex, senão block
+                    target.style.display = target.classList.contains('modal') ? 'flex' : 'block';
+                }
                 if (menuId === 'multiplayer-menu') checkMultiplayerSave();
             }
         }
 
         function showSettingsMenu() {
-            showMenu('');
-            document.getElementById('settings-menu-main').style.display = 'flex';
+            showMenu('settings-menu-main');
         }
 
         function deleteSaveDataMain() {
