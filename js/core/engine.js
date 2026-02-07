@@ -2570,12 +2570,40 @@ function executeBuild(t) {
     saveGame(); 
 }
 
+let skipVotes = new Set();
+
+window.voteSkipIntro = function() {
+    if (window.Multiplayer && window.Multiplayer.GAME_CODE) {
+        window.sendMultiplayerAction('vote_skip_intro', { id: PLAYER_ID });
+    } else {
+        finishIntro();
+    }
+};
+
+function finishIntro() {
+    const overlay = document.getElementById('intro-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
 function processHostAction(action, senderId) {
     if (!window.multiplayerIsHost()) return;
     
-    console.log(`Host processando ação de ${senderId}:`, action);
-    
     switch (action.type) {
+        case 'vote_skip_intro':
+            skipVotes.add(senderId);
+            const totalPlayers = 1 + otherPlayers.size;
+            
+            // Atualiza contador em todos os clientes
+            window.sendMultiplayerAction('update_skip_counter', { 
+                current: skipVotes.size, 
+                total: totalPlayers 
+            });
+
+            if (skipVotes.size >= totalPlayers) {
+                window.sendMultiplayerAction('force_skip_intro');
+                finishIntro();
+            }
+            break;
         case 'build_chamber':
             executeBuild(action.chamberType);
             break;

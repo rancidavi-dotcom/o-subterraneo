@@ -195,6 +195,15 @@ function handleServerMessage(msg) {
                 if (multiplayerState.processHostAction) {
                     multiplayerState.processHostAction(msg.action, msg.playerId);
                 }
+            } else {
+                // CLIENTE: Recebe comandos forçados pelo Host
+                if (msg.action.type === 'force_skip_intro') {
+                    const overlay = document.getElementById('intro-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                } else if (msg.action.type === 'update_skip_counter') {
+                    const btn = document.getElementById('btn-skip-intro');
+                    if (btn) btn.innerText = `Pular Cutscene (${msg.action.current}/${msg.action.total})`;
+                }
             }
             break;
             
@@ -237,8 +246,17 @@ function updateOtherPlayer(data) {
 
 function sendAction(actionType, payload = {}) {
     if (isMultiplayerHost) {
+        // Se o HOST chama sendAction, ele executa local e avisa os outros
         if (multiplayerState.processHostAction) {
             multiplayerState.processHostAction({ type: actionType, ...payload }, multiplayerState.PLAYER_ID);
+        }
+        // Broadcast para os clientes (para ações que eles devem refletir visualmente)
+        if (isConnected && ['force_skip_intro', 'update_skip_counter'].includes(actionType)) {
+            ws.send(JSON.stringify({
+                type: 'action',
+                code: multiplayerState.GAME_CODE,
+                payload: { type: actionType, ...payload }
+            }));
         }
     } else {
         if (isConnected) {
