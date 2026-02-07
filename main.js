@@ -27,10 +27,10 @@ function startWebSocketServer() {
             stdio: ['inherit', 'inherit', 'inherit', 'ipc']
         });
 
-        console.log('Servidor WebSocket iniciado automaticamente na porta 8080');
+        console.log('Servidor WebSocket iniciado automaticamente na porta 8888');
     });
 
-    serverCheck.listen(8080);
+    serverCheck.listen(8888);
 }
 
 function createWindow() {

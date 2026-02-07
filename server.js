@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8888;
 
 // Tipos de arquivos suportados para o servidor estático
 const MIME_TYPES = {

@@ -182,7 +182,7 @@
             if (!serverUrl) {
                 // Se não houver URL salva, tenta localhost se estiver no Electron/Local, senão usa Render
                 serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                    ? "ws://localhost:8080"
+                    ? "ws://localhost:8888"
                     : "wss://o-subterraneo.onrender.com";
             }
             
