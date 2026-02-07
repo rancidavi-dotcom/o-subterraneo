@@ -713,6 +713,7 @@ function startGame() {
             displayChatMessage: displayChatMessage,
             serializeGameState: serializeGameState,
             applyGameState: applyGameState,
+            processHostAction: processHostAction, // ADICIONADO
             updateHUD: typeof updateHUD === 'function' ? updateHUD : null,
             updateGameTimeDisplay: updateGameTimeDisplay,
             togglePause: (p) => { gamePaused = p; }
@@ -2433,14 +2434,36 @@ function saveGame() {
     console.log(`Jogo salvo no localStorage (${isMulti ? 'Multiplayer' : 'Solo'})`);
 }
 function setColonyName(n) { colonyName = n; let d = document.getElementById('colony-display-name') || document.createElement('div'); d.id='colony-display-name'; d.innerText = `Formigueiro: ${n}`; if(!document.getElementById('colony-display-name')) document.getElementById('game-container').appendChild(d); }
-function confirmColonyName() { 
+window.confirmColonyName = function() { 
     const n = document.getElementById('colony-name-input').value.trim(); 
     if(n){ 
-        setColonyName(n); 
-        document.getElementById('naming-modal').style.display='none'; 
-        gamePaused = false; // DESPAUSA AO CONFIRMAR
-        saveGame(); 
+        if (window.multiplayerIsHost()) {
+            setColonyName(n); 
+            document.getElementById('naming-modal').style.display='none'; 
+            gamePaused = false;
+            saveGame();
+        } else {
+            // Se um cliente de alguma forma abrir, ele apenas fecha
+            document.getElementById('naming-modal').style.display='none';
+        }
     } 
+};
+
+window.buildChamber = function(type) {
+    if (window.multiplayerIsHost()) {
+        // Lógica original de construção (Host executa)
+        executeBuild(type);
+    } else {
+        // Cliente pede ao Host para construir
+        window.sendMultiplayerAction('build_chamber', { chamberType: type });
+        document.getElementById('construction-hud').style.display = 'none';
+    }
+};
+
+function executeBuild(type) {
+    // Vou extrair a lógica que estava dentro de buildChamber para uma função interna
+    console.log("Host executando construção:", type);
+    // ... (restante da lógica será movida para cá)
 }
 function openStats() {
     const modal = document.getElementById('stats-modal');
@@ -2512,57 +2535,89 @@ function updateStatsUI() {
 }
 
 function closeStats() { document.getElementById('stats-modal').style.display = 'none'; }
-function buildChamber(t, isRemoteAction = false) {
+// 5. SISTEMA DE CONSTRUÇÃO E MULTIPLAYER ACTIONS
+function executeBuild(t) {
     const currentLevel = chambers[t] || 0;
-    if (currentLevel >= 2) return; // Máximo atingido
+    if (currentLevel >= 2) return;
 
     if (t === 'eggs') {
         if (currentLevel === 0) {
-            chambers.eggs = 1;
-            ANT_CAPACITY = 10;
+            chambers.eggs = 1; ANT_CAPACITY = 10;
             eggs = [{x:CX+400,y:CY-30,timer:10,total:10},{x:CX+440,y:CY+20,timer:10,total:10}]; 
         } else if (currentLevel === 1) {
-            if (fungusFood < 50) { alert("Upgrade para Berçário Lvl 2 custa 50 fungos!"); return; }
-            fungusFood -= 50;
-            chambers.eggs = 2;
-            ANT_CAPACITY = 40;
-            alert("Berçário expandido! Capacidade: 40 formigas.");
+            if (fungusFood < 50) return;
+            fungusFood -= 50; chambers.eggs = 2; ANT_CAPACITY = 40;
         }
     } else if (t === 'food') {
         if (currentLevel === 0) {
-            chambers.food = 1;
-            FOOD_CAPACITY = 20;
+            chambers.food = 1; FOOD_CAPACITY = 20;
         } else if (currentLevel === 1) {
-            if (storedLeaves.length < 30) { alert("Upgrade para Depósito Lvl 2 custa 30 folhas!"); return; }
-            storedLeaves.splice(0, 30);
-            chambers.food = 2;
-            FOOD_CAPACITY = 100;
-            alert("Depósito expandido! Capacidade: 100 recursos.");
+            if (storedLeaves.length < 30) return;
+            storedLeaves.splice(0, 30); chambers.food = 2; FOOD_CAPACITY = 100;
         }
     } else if (t === 'fungus') {
-        if (storedLeaves.length < 20) { alert("Câmara de Fungos custa 20 folhas!"); return; }
-        storedLeaves.splice(0, 20);
-        chambers.fungus = 1;
+        if (storedLeaves.length < 20) return;
+        storedLeaves.splice(0, 20); chambers.fungus = 1;
     } else if (t === 'domestication') {
-        // CUSTO ATUALIZADO: 200 Folhas + 1 Gota D'água
-        if (storedLeaves.length < 200) { alert("Você precisa de 200 folhas!"); return; }
-        if (waterDroplets < 1) { alert("Você precisa de uma Gota D'água Rara!"); return; }
-        
-        storedLeaves.splice(0, 200);
-        waterDroplets--; // Consome a gota
-        chambers.domestication = 1;
+        if (storedLeaves.length < 200 || waterDroplets < 1) return;
+        storedLeaves.splice(0, 200); waterDroplets--; chambers.domestication = 1;
     } else if (t === 'stockpile') {
-        if (storedLeaves.length < 40) { alert("Estoque de Alimentos custa 40 folhas!"); return; }
-        if (fungusFood < 10) { alert("Estoque de Alimentos custa 10 fungos!"); return; }
-        
-        storedLeaves.splice(0, 40);
-        fungusFood -= 10;
-        chambers.stockpile = 1;
+        if (storedLeaves.length < 40 || fungusFood < 10) return;
+        storedLeaves.splice(0, 40); fungusFood -= 10; chambers.stockpile = 1;
     }
 
     if (typeof updateHUD === 'function') updateHUD();
     saveGame(); 
 }
+
+function processHostAction(action, senderId) {
+    if (!window.multiplayerIsHost()) return;
+    
+    console.log(`Host processando ação de ${senderId}:`, action);
+    
+    switch (action.type) {
+        case 'build_chamber':
+            executeBuild(action.chamberType);
+            break;
+        case 'generate_ant':
+            executeGenerateAnt(action.antType);
+            break;
+    }
+}
+
+function executeGenerateAnt(antType) {
+    if (!chambers.eggs) return;
+    let cost = 20;
+    if (antType === 'soldier') cost = 40;
+    else if (antType === 'scout') cost = 15;
+
+    if (fungusFood >= cost) {
+        fungusFood -= cost;
+        const newAnt = new Ant(CX + 400, CY, antType);
+        newAnt.currentMap = "underground";
+        workers.push(newAnt);
+        if (typeof updateHUD === 'function') updateHUD();
+        saveGame();
+    }
+}
+
+window.generateWorkerAnt = function(antType) {
+    if (window.multiplayerIsHost()) {
+        executeGenerateAnt(antType);
+    } else {
+        window.sendMultiplayerAction('generate_ant', { antType: antType });
+    }
+};
+
+window.buildChamber = function(t) {
+    if (window.multiplayerIsHost()) {
+        executeBuild(t);
+    } else {
+        window.sendMultiplayerAction('build_chamber', { chamberType: t });
+        const modal = document.getElementById('construction-hud');
+        if (modal) modal.style.display = 'none';
+    }
+};
 
 function updateQueenLogic(q) {
     if (!q) return;
@@ -2581,77 +2636,6 @@ function updateQueenLogic(q) {
         }
     }
 }
-
-
-function generateWorkerAnt(antType = 'worker', isRemoteAction = false) {
-    if (!chambers.eggs) {
-
-        alert("Você precisa construir a Câmara de Ovos primeiro!");
-
-        return;
-
-    }
-
-
-
-    let cost = 20;
-
-    let label = "Operária";
-
-    if (antType === 'soldier') { cost = 40; label = "Soldada"; }
-
-    else if (antType === 'scout') { cost = 15; label = "Exploradora"; }
-
-
-
-    if (fungusFood < cost) {
-
-        alert(`Você precisa de ${cost} fungos para gerar uma ${label}!`);
-
-        return;
-
-    }
-
-    if (workers.length >= ANT_CAPACITY) { 
-
-        alert("Sua colônia atingiu a capacidade máxima de formigas!");
-
-        return;
-
-    }
-
-
-
-    fungusFood -= cost; 
-
-    
-
-    eggs.push({
-
-        x: CX + 400 + (Math.random() - 0.5) * 50,
-
-        y: CY + (Math.random() - 0.5) * 50,
-
-        timer: 10, 
-
-        total: 10,
-
-        isHatching: false,
-
-        antType: antType // Salva o tipo no ovo
-
-    });
-
-
-
-    updateHUD(); 
-
-    saveGame();
-
-    if (!isRemoteAction) alert(`${label} em treinamento! Levará 10 segundos para nascer.`);
-
-}
-
 
 
 function recallAllToQueen() {

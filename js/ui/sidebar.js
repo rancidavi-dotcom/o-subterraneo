@@ -40,11 +40,36 @@ function updateHUD() {
 
     // Atualizar nomes baseados no nickname real
     const uiQueenName = document.getElementById('ui-queen-name');
-    const sidebarQueenName = document.getElementById('sidebar-queen-name');
+    const sidebarQueenSection = document.querySelector('#ant-sidebar .sidebar-section');
     const nickname = typeof myPlayerNickname !== 'undefined' ? myPlayerNickname : "Rainha";
     
     if (uiQueenName) uiQueenName.innerText = nickname;
-    if (sidebarQueenName) sidebarQueenName.innerText = nickname + " (Você)";
+
+    // Atualizar Lista de Rainhas na Sidebar
+    if (sidebarQueenSection) {
+        // Encontra o cabeçalho "Rainhas" e limpa apenas os itens abaixo dele
+        const header = Array.from(sidebarQueenSection.querySelectorAll('h4')).find(h => h.innerText === 'Rainhas');
+        if (header) {
+            // Remove todos os unit-items de rainha antigos
+            sidebarQueenSection.querySelectorAll('.unit-item-queen').forEach(el => el.remove());
+            
+            // Adiciona você
+            const localQueenItem = document.createElement('div');
+            localQueenItem.className = 'unit-item unit-item-queen';
+            localQueenItem.innerText = `👑 ${nickname} (Você)`;
+            header.after(localQueenItem);
+
+            // Adiciona outros jogadores
+            if (typeof otherPlayers !== 'undefined') {
+                otherPlayers.forEach(p => {
+                    const otherItem = document.createElement('div');
+                    otherItem.className = 'unit-item unit-item-queen';
+                    otherItem.innerText = `👑 ${p.name}`;
+                    localQueenItem.after(otherItem);
+                });
+            }
+        }
+    }
 }
 
 function changeTask(type, delta) {
