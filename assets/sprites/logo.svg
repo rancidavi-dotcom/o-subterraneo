@@ -1,0 +1,35 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <radialGradient id="chitinGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:#4a2c10;stop-opacity:1" />
+            <stop offset="70%" style="stop-color:#1a0d00;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#050300;stop-opacity:1" />
+        </radialGradient>
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#8b4513;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#d2691e;stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="10" />
+            <feOffset dx="5" dy="5" result="offsetblur" />
+            <feComponentTransfer><feFuncA type="linear" slope="0.7"/></feComponentTransfer>
+            <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+    <ellipse cx="250" cy="400" rx="150" ry="30" fill="black" opacity="0.4" />
+    <g filter="url(#shadow)">
+        <path d="M210,350 Q150,380 170,420 L190,400 Q180,380 210,370 Z" fill="url(#chitinGrad)" stroke="#3d1f00" stroke-width="2" />
+        <path d="M290,350 Q350,380 330,420 L310,400 Q320,380 290,370 Z" fill="url(#chitinGrad)" stroke="#3d1f00" stroke-width="2" />
+        <path d="M200,280 Q250,240 300,280 Q320,350 250,360 Q180,350 200,280" fill="url(#chitinGrad)" stroke="url(#goldGrad)" stroke-width="3" />
+        <circle cx="225" cy="305" r="8" fill="#000" />
+        <circle cx="222" cy="302" r="2" fill="#fff" opacity="0.4" />
+        <circle cx="275" cy="305" r="8" fill="#000" />
+        <circle cx="272" cy="302" r="2" fill="#fff" opacity="0.4" />
+        <path d="M220,265 L180,220 L140,230" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round" />
+        <path d="M280,265 L320,220 L360,230" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round" />
+    </g>
+</svg>

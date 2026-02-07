@@ -7,6 +7,7 @@
   "scripts": {
     "start": "electron .",
     "server": "node server.js",
+    "render-start": "node server.js",
     "build:linux": "electron-builder --linux",
     "build:win": "electron-builder --windows",
     "build:all": "electron-builder --linux --windows"

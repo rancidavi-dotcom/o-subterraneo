@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Subterrâneo - Menu</title>
+    <link rel="stylesheet" href="css/menu.css">
+</head>
+<body>
+    <!-- Canvas de Fundo Animado -->
+    <canvas id="menu-bg-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;"></canvas>
+
+    <!-- Elementos Decorativos -->
+    <div class="decor" style="top: 10%; left: 5%;">🐜</div>
+    <div class="decor" style="top: 80%; left: 15%;">🐜</div>
+    <div class="decor" style="top: 20%; right: 10%;">🐜</div>
+    <div class="decor" style="top: 70%; right: 20%;">🐜</div>
+
+    <div id="main-menu" class="menu-screen">
+        <div class="title-container">
+            <img src="assets/sprites/logo.svg" alt="O Subterrâneo" style="width: 250px; margin-bottom: -20px; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));">
+            <h1>O SUBTERRÂNEO</h1>
+            <div class="subtitle">O DESTINO DA RAINHA</div>
+        </div>
+        <nav>
+            <button id="btn-continue" style="display: none; background: #228b22;" onclick="continueGame()">Continuar de onde parei</button>
+            <button onclick="window.location.href='game.html?mode=new'">Criar um novo mundo</button>
+            <button onclick="startOnlineGame()">Multiplayer Online</button>
+            <button onclick="document.getElementById('file-input').click()">Carregar mundo salvo</button>
+            <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
+            <button onclick="showSettingsMenu()">Opções</button>
+        </nav>
+        <div id="player-nickname-display" style="margin-top: 20px; font-size: 1.2rem; color: #fff;">
+            Olá, <span id="current-nickname"></span>!
+        </div>
+    </div>
+
+
+    <!-- Menu de Configurações (Main Menu) -->
+    <div id="settings-menu-main" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Configurações</h2>
+            <nav class="settings-nav">
+                <button onclick="deleteSaveDataMain()" class="btn-danger">Excluir Mundo Salvo</button>
+                <button onclick="showMenu('main-menu')">Voltar</button>
+            </nav>
+        </div>
+    </div>
+
+    <script>
+        // const { ipcRenderer } = require('electron'); // REMOVIDO PARA NAVEGADOR
+
+        // Function to generate a random 5-character alphanumeric code
+        function generateRandomCode(length) {
+            let result = '';
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const charactersLength = characters.length;
+            for (let i = 0; i < length; i++) {
+                result += characters.charAt(Math.floor(Math.random() * charactersLength));
+            }
+            return result;
+        }
+
+        let playerNickname = ''; // Global variable for the player's nickname
+
+        // Load nickname on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            const nickname = localStorage.getItem('playerNickname');
+            if (nickname) {
+                playerNickname = nickname;
+                document.getElementById('current-nickname').innerText = playerNickname;
+                document.getElementById('nickname-modal').style.display = 'none';
+                showMenu('main-menu');
+            } else {
+                document.getElementById('nickname-modal').style.display = 'flex';
+            }
+            
+            // Verificar save rápido
+            const autoSave = localStorage.getItem('osubterraneo_save');
+            if (autoSave) {
+                document.getElementById('btn-continue').style.display = 'block';
+            }
+        });
+
+        function savePlayerNickname() {
+            const input = document.getElementById('player-nickname-input');
+            const nickname = input.value.trim();
+
+            if (nickname.length < 3) {
+                alert("O apelido deve ter no mínimo 3 caracteres.");
+                return;
+            }
+            if (nickname.length > 15) {
+                alert("O apelido deve ter no máximo 15 caracteres.");
+                return;
+            }
+
+            playerNickname = nickname;
+            localStorage.setItem('playerNickname', playerNickname);
+            document.getElementById('current-nickname').innerText = playerNickname;
+            document.getElementById('nickname-modal').style.display = 'none';
+            showMenu('main-menu');
+        }
+
+        function continueGame() {
+            window.location.href = 'game.html?mode=continue';
+        }
+
+        function startOnlineGame() {
+            const choice = confirm("Clique em OK para CRIAR uma sala (Host) ou CANCELAR para ENTRAR em uma existente:");
+            if (choice) {
+                const code = generateRandomCode(5);
+                alert("Seu código de sala é: " + code + "\n\nCompartilhe este código com seus amigos!");
+                window.location.href = `game.html?mode=new&host=true&code=${code}`;
+            } else {
+                const code = prompt("Digite o código da sala:");
+                if (code) {
+                    window.location.href = `game.html?mode=new&host=false&code=${code}`;
+                }
+            }
+        }
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    localStorage.setItem('temp_save_data', JSON.stringify(data));
+                    window.location.href = 'game.html?mode=load';
+                } catch (err) {
+                    alert("Arquivo inválido!");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showMenu(menuId) {
+            document.querySelectorAll('.menu-screen').forEach(m => m.style.display = 'none');
+            document.getElementById('nickname-modal').style.display = 'none';
+            if (menuId) {
+                document.getElementById(menuId).style.display = 'block';
+            }
+        }
+
+        function showSettingsMenu() {
+            showMenu('');
+            document.getElementById('settings-menu-main').style.display = 'flex';
+        }
+
+        function deleteSaveDataMain() {
+            if (confirm("Tem certeza que deseja excluir o mundo? Esta ação é irreversível.")) {
+                localStorage.removeItem('osubterraneo_save');
+                localStorage.removeItem('playerNickname');
+                alert("Mundo excluído! A página será recarregada.");
+                window.location.reload();
+            }
+        }
+
+        // --- ANIMAÇÃO ELITE DO MENU (SUBTERRÂNEO CINEMÁTICO) ---
+        const bgCanvas = document.getElementById('menu-bg-canvas');
+        const bctx = bgCanvas.getContext('2d');
+        let particles = [];
+        let menuAnts = [];
+        let bgStones = [];
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+
+        function resizeBg() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            generateBgDetails();
+        }
+        window.addEventListener('resize', resizeBg);
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function generateBgDetails() {
+            bgStones = [];
+            for(let i=0; i<15; i++) {
+                bgStones.push({
+                    x: Math.random() * bgCanvas.width,
+                    y: Math.random() * bgCanvas.height,
+                    size: 10 + Math.random() * 40,
+                    color: `rgb(${40 + Math.random()*20}, ${30 + Math.random()*15}, ${20})`,
+                    depth: 0.5 + Math.random() * 1.5
+                });
+            }
+        }
+        generateBgDetails();
+
+        // Inicializar Partículas (Esporos)
+        for(let i=0; i<100; i++) {
+            particles.push({
+                x: Math.random() * bgCanvas.width,
+                y: Math.random() * bgCanvas.height,
+                size: Math.random() * 2 + 1,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                depth: Math.random() * 2 + 1
+            });
+        }
+
+        // Inicializar Formigas de Fundo
+        function spawnMenuAnt() {
+            if (menuAnts.length < 5) {
+                const side = Math.random() > 0.5 ? 1 : -1;
+                menuAnts.push({
+                    x: side > 0 ? -50 : bgCanvas.width + 50,
+                    y: Math.random() * bgCanvas.height,
+                    speed: (Math.random() * 1 + 0.5) * side,
+                    angle: side > 0 ? 0 : Math.PI,
+                    size: 3 + Math.random() * 2,
+                    legCycle: 0
+                });
+            }
+        }
+
+        function drawMenuBg() {
+            // 1. FUNDO PROFUNDO
+            bctx.fillStyle = '#050300';
+            bctx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            // 2. PEDRAS E RACHADURAS (Paralaxe Profundo)
+            bgStones.forEach(s => {
+                const sX = s.x + (mouseX - bgCanvas.width/2) * 0.01 * s.depth;
+                const sY = s.y + (mouseY - bgCanvas.height/2) * 0.01 * s.depth;
+                
+                bctx.fillStyle = s.color;
+                bctx.beginPath();
+                bctx.arc(sX, sY, s.size, 0, Math.PI*2);
+                bctx.fill();
+                
+                bctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                bctx.lineWidth = 2;
+                bctx.stroke();
+            });
+
+            // --- NOVO: FORMIGA SENTINELA ULTRA-REALISTA (MACRO) ---
+            const hX = bgCanvas.width * 0.85 + (mouseX - bgCanvas.width/2) * 0.04;
+            const hY = bgCanvas.height * 0.75 + (mouseY - bgCanvas.height/2) * 0.04;
+            
+            // 1. O BURACO (Com profundidade e oclusão)
+            const holeGrad = bctx.createRadialGradient(hX, hY, 10, hX, hY, 80);
+            holeGrad.addColorStop(0, '#000');
+            holeGrad.addColorStop(0.8, '#0a0500');
+            holeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            bctx.fillStyle = holeGrad;
+            bctx.beginPath(); bctx.ellipse(hX, hY, 80, 50, 0, 0, Math.PI*2); bctx.fill();
+
+            // 2. A FORMIGA (Anatomia Macro)
+            bctx.save();
+            bctx.translate(hX, hY - 5);
+            
+            const time = Date.now();
+            const headColor = '#1a0d00';
+            const chitinGrad = bctx.createRadialGradient(-5, -10, 2, 0, 0, 30);
+            chitinGrad.addColorStop(0, '#3d1f00'); // Brilho da quitina
+            chitinGrad.addColorStop(1, '#050300'); // Sombra profunda
+
+            // MANDÍBULAS DENTEADAS (Serrilhadas)
+            const mOpen = Math.abs(Math.sin(time / 600)) * 0.5; // Movimento mais natural
+            [-1, 1].forEach(side => {
+                bctx.save();
+                bctx.fillStyle = '#0a0500';
+                bctx.strokeStyle = '#111';
+                bctx.lineWidth = 1;
+                bctx.translate(side * 8, 15);
+                bctx.rotate(side * mOpen);
+                
+                bctx.beginPath();
+                bctx.moveTo(0, 0);
+                // Forma curvada da mandíbula
+                bctx.quadraticCurveTo(side * 25, 5, side * 15, 35);
+                // Dentes da mandíbula (Serrilha)
+                for(let d=0; d<5; d++) {
+                    bctx.lineTo(side * (12 - d*2), 30 - d*5);
+                    bctx.lineTo(side * (10 - d*2), 28 - d*5);
+                }
+                bctx.closePath();
+                bctx.fill(); bctx.stroke();
+                
+                // Brilho na ponta da mandíbula
+                bctx.fillStyle = 'rgba(255,255,255,0.05)';
+                bctx.beginPath(); bctx.ellipse(side*10, 20, 5, 10, side*0.5, 0, Math.PI*2); bctx.fill();
+                bctx.restore();
+            });
+
+            // CABEÇA (Cápsula cefálica)
+            bctx.fillStyle = chitinGrad;
+            bctx.beginPath();
+            bctx.moveTo(-25, -5);
+            bctx.bezierCurveTo(-30, -30, 30, -30, 25, -5);
+            bctx.bezierCurveTo(30, 20, -30, 20, -25, -5);
+            bctx.fill();
+
+            // OLHOS COMPOSTOS (Com brilho especular)
+            [-1, 1].forEach(side => {
+                const eyeX = side * 18;
+                const eyeY = -8;
+                const eyeGrad = bctx.createRadialGradient(eyeX - side*2, eyeY - 2, 1, eyeX, eyeY, 6);
+                eyeGrad.addColorStop(0, '#222');
+                eyeGrad.addColorStop(1, '#000');
+                bctx.fillStyle = eyeGrad;
+                bctx.beginPath(); bctx.arc(eyeX, eyeY, 6, 0, Math.PI*2); bctx.fill();
+                
+                // Ponto de luz (Reflexo)
+                bctx.fillStyle = '#fff';
+                bctx.globalAlpha = 0.3;
+                bctx.beginPath(); bctx.arc(eyeX - side*2, eyeY - 2, 1.5, 0, Math.PI*2); bctx.fill();
+                bctx.globalAlpha = 1.0;
+            });
+
+            // CERDAS (Pelinhos sensoriais nas bordas)
+            bctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            bctx.lineWidth = 0.5;
+            for(let p=0; p<20; p++) {
+                const ang = (p/20) * Math.PI * 2;
+                bctx.beginPath();
+                bctx.moveTo(Math.cos(ang)*25, Math.sin(ang)*20);
+                bctx.lineTo(Math.cos(ang)*28, Math.sin(ang)*23);
+                bctx.stroke();
+            }
+
+            // ANTENAS DINÂMICAS (Com dois segmentos)
+            [-1, 1].forEach(side => {
+                bctx.strokeStyle = '#0a0500';
+                bctx.lineWidth = 1.5;
+                const aX = side * 10;
+                const aY = -15;
+                const twitch = Math.sin(time/200 + side) * 5;
+                
+                bctx.beginPath();
+                bctx.moveTo(aX, aY);
+                // Escapo
+                const ex = aX + side*20;
+                const ey = aY - 20 + twitch;
+                bctx.lineTo(ex, ey);
+                // Funículo (mais fino)
+                bctx.lineWidth = 0.8;
+                bctx.lineTo(ex + side*15, ey - 5 + Math.cos(time/300)*10);
+                bctx.stroke();
+            });
+
+            bctx.restore();
+
+            // 3. PARALAXE DE ESPOROS (Longe)
+
+            // 3. PARALAXE DE ESPOROS (Longe)
+            particles.forEach(p => {
+                const pX = p.x + (mouseX - bgCanvas.width/2) * 0.02 * p.depth;
+                const pY = p.y + (mouseY - bgCanvas.height/2) * 0.02 * p.depth;
+                
+                const alpha = Math.abs(Math.sin(Date.now() / 2000 + p.x));
+                bctx.fillStyle = `rgba(200, 150, 100, ${alpha * 0.2})`;
+                bctx.beginPath();
+                bctx.arc(pX, pY, p.size, 0, Math.PI * 2);
+                bctx.fill();
+
+                p.x += p.vx; p.y += p.vy;
+                if(p.x < 0) p.x = bgCanvas.width; if(p.x > bgCanvas.width) p.x = 0;
+                if(p.y < 0) p.y = bgCanvas.height; if(p.y > bgCanvas.height) p.y = 0;
+            });
+
+            // 3. FORMIGAS ANDANDO (Meio Termo)
+            if (Math.random() < 0.01) spawnMenuAnt();
+            menuAnts.forEach((ant, index) => {
+                ant.x += ant.speed;
+                ant.legCycle += 0.2;
+                const aX = ant.x + (mouseX - bgCanvas.width/2) * 0.05;
+                
+                bctx.save();
+                bctx.translate(aX, ant.y);
+                bctx.rotate(ant.angle);
+                bctx.fillStyle = 'rgba(0,0,0,0.6)';
+                // Desenho simplificado de formiga silhouette
+                bctx.beginPath();
+                bctx.ellipse(-ant.size, 0, ant.size, ant.size*0.6, 0, 0, Math.PI*2);
+                bctx.ellipse(0, 0, ant.size*0.7, ant.size*0.5, 0, 0, Math.PI*2);
+                bctx.ellipse(ant.size, 0, ant.size*0.8, ant.size*0.7, 0, 0, Math.PI*2);
+                bctx.fill();
+                bctx.restore();
+
+                if (ant.x > bgCanvas.width + 100 || ant.x < -100) menuAnts.splice(index, 1);
+            });
+
+            // 4. RAÍZES COM PARALAXE (Perto)
+            bctx.strokeStyle = 'rgba(40, 25, 10, 0.5)';
+            bctx.lineWidth = 4;
+            for(let i=0; i<6; i++) {
+                const rX = (i/6) * bgCanvas.width + (mouseX - bgCanvas.width/2) * 0.1;
+                const sway = Math.sin(Date.now() / 3000 + i) * 30;
+                bctx.beginPath();
+                bctx.moveTo(rX, -20);
+                bctx.quadraticCurveTo(rX + sway, bgCanvas.height/2, rX, bgCanvas.height + 20);
+                bctx.stroke();
+            }
+
+            // 5. ILUMINAÇÃO DINÂMICA (Segue o Mouse)
+            const lightGrad = bctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, bgCanvas.width/1.5);
+            lightGrad.addColorStop(0, 'rgba(210, 105, 30, 0.15)');
+            lightGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
+            lightGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
+            bctx.fillStyle = lightGrad;
+            bctx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            // 6. VINHETA FIXA
+            const vinn = bctx.createRadialGradient(bgCanvas.width/2, bgCanvas.height/2, 0, bgCanvas.width/2, bgCanvas.height/2, bgCanvas.width);
+            vinn.addColorStop(0, 'transparent');
+            vinn.addColorStop(1, 'rgba(0,0,0,0.7)');
+            bctx.fillStyle = vinn;
+            bctx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            requestAnimationFrame(drawMenuBg);
+        }
+        drawMenuBg();
+    </script>    <!-- Nickname Modal -->
+    <div id="nickname-modal" class="modal">
+        <div class="modal-content">
+            <h2>Bem-vindo!</h2>
+            <p>Por favor, digite um apelido para o seu jogador:</p>
+            <input type="text" id="player-nickname-input" placeholder="Seu apelido" maxlength="15">
+            <button onclick="savePlayerNickname()">Confirmar</button>
+        </div>
+    </div>
+    </body>
+    </html>
