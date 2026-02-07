@@ -3,7 +3,7 @@
 
 let ws = null;
 let isConnected = false;
-let isHost = false; 
+let isMultiplayerHost = false; 
 
 // Estado local do multiplayer
 let multiplayerState = {
@@ -71,7 +71,7 @@ function connectToMultiplayer() {
             payload: {
                 id: multiplayerState.PLAYER_ID,
                 name: multiplayerState.myPlayerNickname,
-                isHost: isHost
+                isMultiplayerHost: isMultiplayerHost
             }
         }));
 
@@ -119,7 +119,7 @@ function syncMultiplayerLoop() {
     };
 
     // Se for HOST, anexa o estado do jogo
-    if (isHost) {
+    if (isMultiplayerHost) {
         updatePayload.gameState = multiplayerState.serializeGameState();
     }
 
@@ -143,7 +143,7 @@ function handleServerMessage(msg) {
 
         case 'game_state_update':
             // CLIENTE: Recebe estado do jogo do Host
-            if (!isHost) {
+            if (!isMultiplayerHost) {
                 if (multiplayerState.applyGameState) {
                     multiplayerState.applyGameState(msg.gameState);
                 }
@@ -163,7 +163,7 @@ function handleServerMessage(msg) {
 
         case 'client_data':
             // HOST: Recebe dados de um cliente (posição)
-            if (isHost) {
+            if (isMultiplayerHost) {
                 updateOtherPlayer({
                     id: msg.playerId,
                     x: msg.playerData.x,
@@ -177,7 +177,7 @@ function handleServerMessage(msg) {
 
         case 'client_action':
             // HOST: Recebe pedido de ação de um cliente
-            if (isHost) {
+            if (isMultiplayerHost) {
                 console.log(`Host recebeu ação de ${msg.playerId}:`, msg.action);
                 if (multiplayerState.processHostAction) {
                     multiplayerState.processHostAction(msg.action, msg.playerId);
@@ -223,7 +223,7 @@ function updateOtherPlayer(data) {
 // --- Funções Exportadas ---
 
 function sendAction(actionType, payload = {}) {
-    if (isHost) {
+    if (isMultiplayerHost) {
         if (multiplayerState.processHostAction) {
             multiplayerState.processHostAction({ type: actionType, ...payload }, multiplayerState.PLAYER_ID);
         }
@@ -252,7 +252,7 @@ function initializeMultiplayer(engineState) {
     
     // Detecta se é Host pela URL
     const params = new URLSearchParams(window.location.search);
-    isHost = params.get('host') === 'true';
+    isMultiplayerHost = params.get('host') === 'true';
 
     if (multiplayerState.GAME_CODE) {
         connectToMultiplayer();
@@ -304,8 +304,8 @@ async function disconnectPlayer() {
 //     sendChatMessage,
 //     sendAction,
 //     disconnectPlayer,
-//     get isHost() { return isHost; },
-//     set isHost(val) { isHost = val; }
+//     get isMultiplayerHost() { return isMultiplayerHost; },
+//     set isMultiplayerHost(val) { isMultiplayerHost = val; }
 // };
 
 // Tornar global para o browser
@@ -315,6 +315,6 @@ window.Multiplayer = {
     sendChatMessage: sendChatMessage,
     sendAction: sendAction,
     disconnect: disconnectPlayer,
-    get isHost() { return isHost; },
-    set isHost(val) { isHost = val; }
+    get isMultiplayerHost() { return isMultiplayerHost; },
+    set isMultiplayerHost(val) { isMultiplayerHost = val; }
 };
