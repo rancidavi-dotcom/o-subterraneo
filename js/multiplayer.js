@@ -133,6 +133,12 @@ function syncMultiplayerLoop() {
 // Processa mensagens recebidas do servidor
 function handleServerMessage(msg) {
     switch (msg.type) {
+        case 'room_update':
+        case 'game_started':
+        case 'room_created':
+            // Ignorar mensagens de lobby dentro do jogo
+            break;
+            
         case 'chat':
             multiplayerState.displayChatMessage(msg.sender, msg.message);
             break;

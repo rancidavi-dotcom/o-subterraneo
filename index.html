@@ -24,8 +24,8 @@
         </div>
         <nav>
             <button id="btn-continue" style="display: none; background: #228b22;" onclick="continueGame()">Continuar de onde parei</button>
-            <button onclick="window.location.href='game.html?mode=new'">Criar um novo mundo</button>
-            <button onclick="startOnlineGame()">Multiplayer Online</button>
+            <button onclick="window.location.href='game.html?mode=new'">Jogar Solo</button>
+            <button onclick="showMenu('multiplayer-menu')" style="background: #4a148c; border: 1px solid #9c27b0;">Multiplayer Online</button>
             <button onclick="document.getElementById('file-input').click()">Carregar mundo salvo</button>
             <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this)">
             <button onclick="showSettingsMenu()">Opções</button>
@@ -35,6 +35,30 @@
         </div>
     </div>
 
+
+    <div id="multiplayer-menu" class="menu-screen" style="display: none;">
+        <h1>MULTIPLAYER</h1>
+        <nav>
+            <button onclick="lobbyCreateRoom()" style="background: #228b22;">Criar Nova Sala</button>
+            <button onclick="lobbyJoinPrompt()">Entrar em Sala</button>
+            <button onclick="showMenu('main-menu')">Voltar</button>
+        </nav>
+    </div>
+
+    <div id="lobby-screen" class="menu-screen" style="display: none;">
+        <h1 id="lobby-title">SALA: -----</h1>
+        <div id="lobby-players-container" style="background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; margin: 20px auto; max-width: 400px; border: 1px solid #555;">
+            <h3>Jogadores (max 4):</h3>
+            <ul id="player-list" style="list-style: none; padding: 0; text-align: left;">
+                <!-- Lista de jogadores aparecerá aqui -->
+            </ul>
+        </div>
+        <nav id="lobby-controls">
+            <button id="btn-ready" onclick="lobbyToggleReady()" style="background: #daa520;">Estou Pronto</button>
+            <button id="btn-start" onclick="lobbyStartGame()" style="display: none; background: #228b22;">INICIAR JOGO</button>
+            <button onclick="lobbyLeave()" class="btn-danger">Sair da Sala</button>
+        </nav>
+    </div>
 
     <!-- Menu de Configurações (Main Menu) -->
     <div id="settings-menu-main" class="modal" style="display: none;">
@@ -129,19 +153,124 @@
             window.location.href = 'game.html?mode=continue';
         }
 
-        function startOnlineGame() {
-            const choice = confirm("Clique em OK para CRIAR uma sala (Host) ou CANCELAR para ENTRAR em uma existente:");
-            if (choice) {
-                const code = generateRandomCode(5);
-                alert("Seu código de sala é: " + code + "\n\nCompartilhe este código com seus amigos!");
-                window.location.href = `game.html?mode=new&host=true&code=${code}`;
-            } else {
-                const code = prompt("Digite o código da sala:");
-                if (code) {
-                    window.location.href = `game.html?mode=new&host=false&code=${code}`;
+        // --- LÓGICA DE LOBBY MULTIPLAYER ---
+        let lobbyWs = null;
+        let currentRoomCode = null;
+        let isHost = false;
+        const PLAYER_ID = Math.random().toString(36).substr(2, 9);
+
+        function getLobbyWs() {
+            if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) return lobbyWs;
+            const serverUrl = localStorage.getItem('osubterraneo_server_url') || "wss://o-subterraneo.onrender.com";
+            lobbyWs = new WebSocket(serverUrl);
+            
+            lobbyWs.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleLobbyMessage(msg);
+            };
+
+            lobbyWs.onclose = () => {
+                if (document.getElementById('lobby-screen').style.display === 'block') {
+                    alert("Conexão perdida com o servidor.");
+                    showMenu('main-menu');
                 }
+            };
+            return lobbyWs;
+        }
+
+        function handleLobbyMessage(msg) {
+            switch (msg.type) {
+                case 'room_created':
+                    currentRoomCode = msg.code;
+                    isHost = true;
+                    showLobby(msg.players);
+                    break;
+                case 'room_update':
+                    showLobby(msg.players);
+                    break;
+                case 'game_started':
+                    window.location.href = `game.html?mode=new&host=${isHost}&code=${currentRoomCode}`;
+                    break;
+                case 'error':
+                    alert(msg.message);
+                    break;
+                case 'host_disconnected':
+                    alert("O Host fechou a sala.");
+                    showMenu('main-menu');
+                    break;
             }
         }
+
+        function showLobby(players) {
+            showMenu('lobby-screen');
+            document.getElementById('lobby-title').innerText = "SALA: " + currentRoomCode;
+            const list = document.getElementById('player-list');
+            list.innerHTML = '';
+            
+            let allReady = true;
+            players.forEach(p => {
+                const li = document.createElement('li');
+                li.style.padding = '10px';
+                li.style.borderBottom = '1px solid #333';
+                li.style.color = p.ready ? '#90ee90' : '#ffb6c1';
+                li.innerHTML = `
+                    <span style="font-size: 1.2em;">${p.isHost ? '👑' : '🐜'}</span> 
+                    <strong>${p.name}</strong> 
+                    <span style="float: right;">${p.ready ? '[PRONTO]' : '[ESPERANDO...]'}</span>
+                `;
+                list.appendChild(li);
+                if (!p.ready) allReady = false;
+            });
+
+            // Host só inicia se todos estiverem prontos
+            if (isHost) {
+                const btnStart = document.getElementById('btn-start');
+                btnStart.style.display = 'block';
+                btnStart.disabled = !allReady;
+                btnStart.style.opacity = btnStart.disabled ? "0.5" : "1";
+            }
+        }
+
+        function lobbyCreateRoom() {
+            const ws = getLobbyWs();
+            const start = () => ws.send(JSON.stringify({
+                type: 'create_room',
+                payload: { id: PLAYER_ID, name: playerNickname }
+            }));
+            if (ws.readyState === WebSocket.OPEN) start();
+            else ws.onopen = start;
+        }
+
+        function lobbyJoinPrompt() {
+            const code = prompt("Digite o código da sala:");
+            if (code) {
+                const ws = getLobbyWs();
+                const join = () => ws.send(JSON.stringify({
+                    type: 'join_room',
+                    code: code.toUpperCase(),
+                    payload: { id: PLAYER_ID, name: playerNickname }
+                }));
+                currentRoomCode = code.toUpperCase();
+                isHost = false;
+                if (ws.readyState === WebSocket.OPEN) join();
+                else ws.onopen = join;
+            }
+        }
+
+        function lobbyToggleReady() {
+            lobbyWs.send(JSON.stringify({ type: 'toggle_ready', code: currentRoomCode }));
+        }
+
+        function lobbyStartGame() {
+            lobbyWs.send(JSON.stringify({ type: 'start_game', code: currentRoomCode }));
+        }
+
+        function lobbyLeave() {
+            if (lobbyWs) lobbyWs.close();
+            showMenu('main-menu');
+        }
+
+        // --- FIM LÓGICA LOBBY ---
 
         function handleFileSelect(input) {
             const file = input.files[0];

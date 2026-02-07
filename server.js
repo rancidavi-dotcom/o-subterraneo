@@ -80,30 +80,57 @@ wss.on('connection', (ws) => {
 
 function handleMessage(ws, data) {
     const { type, code, payload } = data;
-    if (!code) return;
-
-    if (!rooms[code]) {
-        rooms[code] = { host: null, clients: new Set(), gameState: null };
-    }
-    
-    const room = rooms[code];
+    if (!code && type !== 'create_room') return;
 
     switch (type) {
-        case 'init_ping':
-            console.log(`[MENU] Jogador ${payload.name} abriu o jogo e está online.`);
-            break;
-
-        case 'join':
+        case 'create_room':
+            const newCode = Math.random().toString(36).substr(2, 5).toUpperCase();
+            rooms[newCode] = { 
+                host: ws, 
+                clients: new Set(), 
+                gameState: null,
+                players: [{ id: payload.id, name: payload.name, isHost: true, ready: true }]
+            };
+            ws.gameCode = newCode;
             ws.playerId = payload.id;
             ws.playerName = payload.name;
-            ws.gameCode = code;
+            ws.send(JSON.stringify({ type: 'room_created', code: newCode, players: rooms[newCode].players }));
+            console.log(`[SALA ${newCode}] Criada por ${payload.name}`);
+            break;
+
+        case 'join_room':
+            if (!rooms[code]) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Sala não encontrada' }));
+                return;
+            }
+            const room = rooms[code];
+            if (room.players.length >= 4) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Sala cheia (máx 4)' }));
+                return;
+            }
             
-            if (payload.isHost) {
-                room.host = ws;
-                console.log(`[SALA ${code}] Host ${payload.name} conectado.`);
-            } else {
-                room.clients.add(ws);
-                console.log(`[SALA ${code}] Cliente ${payload.name} conectado.`);
+            ws.gameCode = code;
+            ws.playerId = payload.id;
+            ws.playerName = payload.name;
+            room.clients.add(ws);
+            room.players.push({ id: payload.id, name: payload.name, isHost: false, ready: false });
+            
+            broadcastToRoom(room, { type: 'room_update', players: room.players });
+            console.log(`[SALA ${code}] ${payload.name} entrou`);
+            break;
+
+        case 'toggle_ready':
+            if (rooms[code]) {
+                const p = rooms[code].players.find(p => p.id === ws.playerId);
+                if (p) p.ready = !p.ready;
+                broadcastToRoom(rooms[code], { type: 'room_update', players: rooms[code].players });
+            }
+            break;
+
+        case 'start_game':
+            if (rooms[code] && ws === rooms[code].host) {
+                broadcastToRoom(rooms[code], { type: 'game_started' });
+                console.log(`[SALA ${code}] Jogo iniciado pelo Host`);
             }
             break;
 
@@ -146,12 +173,15 @@ function handleMessage(ws, data) {
 function handleDisconnect(ws) {
     if (!ws.gameCode || !rooms[ws.gameCode]) return;
     const room = rooms[ws.gameCode];
+    
     if (ws === room.host) {
         console.log(`[SALA ${ws.gameCode}] Host saiu. Fechando sala.`);
         broadcastToClients(room, { type: 'host_disconnected' });
         delete rooms[ws.gameCode];
     } else {
         room.clients.delete(ws);
+        room.players = room.players.filter(p => p.id !== ws.playerId);
+        broadcastToRoom(room, { type: 'room_update', players: room.players });
         console.log(`[SALA ${ws.gameCode}] Cliente desconectado.`);
     }
 }
