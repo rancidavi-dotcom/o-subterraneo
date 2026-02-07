@@ -37,6 +37,14 @@ function updateHUD() {
 
     if (taskFoodDisplay) taskFoodDisplay.innerText = foodWorkers;
     if (idleWorkersDisplay) idleWorkersDisplay.innerText = idleWorkers + (guardWorkers > 0 ? ` (+${guardWorkers} em Escolta)` : "");
+
+    // Atualizar nomes baseados no nickname real
+    const uiQueenName = document.getElementById('ui-queen-name');
+    const sidebarQueenName = document.getElementById('sidebar-queen-name');
+    const nickname = typeof myPlayerNickname !== 'undefined' ? myPlayerNickname : "Rainha";
+    
+    if (uiQueenName) uiQueenName.innerText = nickname;
+    if (sidebarQueenName) sidebarQueenName.innerText = nickname + " (Você)";
 }
 
 function changeTask(type, delta) {

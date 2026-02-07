@@ -588,11 +588,13 @@ function initGame(showEffect) {
             }
         } else {
             console.log('No auto-save data found. Starting a new game.');
-            // Se não houver save, inicia como novo e também pede o nome
-            setTimeout(() => {
-                const namingModal = document.getElementById('naming-modal');
-                if (namingModal) namingModal.style.display = 'flex';
-            }, 1000);
+            // Se não houver save, inicia como novo e também pede o nome (APENAS HOST)
+            if (window.multiplayerIsHost()) {
+                setTimeout(() => {
+                    const namingModal = document.getElementById('naming-modal');
+                    if (namingModal) namingModal.style.display = 'flex';
+                }, 1000);
+            }
         }
         startGame();
     }
