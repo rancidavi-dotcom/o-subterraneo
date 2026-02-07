@@ -97,6 +97,16 @@
         }
 
         let playerNickname = ''; // Global variable for the player's nickname
+        let localServerPort = 8888; // Default fallback
+
+        // Escuta porta dinâmica se estiver no Electron
+        if (window.process && window.process.type === 'renderer') {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.on('server-port', (event, port) => {
+                console.log("Porta do servidor local recebida:", port);
+                localServerPort = port;
+            });
+        }
 
         // Load nickname on startup
         document.addEventListener('DOMContentLoaded', () => {
@@ -180,9 +190,13 @@
             
             let serverUrl = localStorage.getItem('osubterraneo_server_url');
             if (!serverUrl) {
-                // Se não houver URL salva, tenta localhost se estiver no Electron/Local, senão usa Render
-                serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                    ? "ws://localhost:8888"
+                // Se estiver no Electron (file:) ou localhost, usa a porta dinâmica local
+                const isLocal = window.location.hostname === 'localhost' || 
+                                window.location.hostname === '127.0.0.1' || 
+                                window.location.protocol === 'file:';
+                
+                serverUrl = isLocal
+                    ? `ws://localhost:${localServerPort}`
                     : "wss://o-subterraneo.onrender.com";
             }
             

@@ -5,32 +5,22 @@ const { exec } = require('child_process');
 
 let phpServer = null;
 
-function startWebSocketServer() {
-    const net = require('net');
-    const serverCheck = net.createServer();
+function startWebSocketServer(win) {
+    const { fork } = require('child_process');
+    const serverPath = path.join(__dirname, 'server.js');
+    
+    if (phpServer) return;
 
-    // Tenta abrir um servidor temporário para ver se a porta está livre
-    serverCheck.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.log('Servidor já está rodando em outra instância. Ignorando inicialização.');
+    phpServer = fork(serverPath, [], {
+        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+    });
+
+    phpServer.on('message', (msg) => {
+        if (msg.type === 'server-port') {
+            win.webContents.send('server-port', msg.port);
+            console.log(`Servidor WebSocket iniciado na porta ${msg.port}`);
         }
     });
-
-    serverCheck.once('listening', () => {
-        serverCheck.close();
-        const { fork } = require('child_process');
-        const serverPath = path.join(__dirname, 'server.js');
-        
-        if (phpServer) return;
-
-        phpServer = fork(serverPath, [], {
-            stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-        });
-
-        console.log('Servidor WebSocket iniciado automaticamente na porta 8888');
-    });
-
-    serverCheck.listen(8888);
 }
 
 function createWindow() {
@@ -49,6 +39,7 @@ function createWindow() {
   });
 
   win.loadFile('index.html');
+  startWebSocketServer(win);
 
   // Lógica de Salvamento Automático
   ipcMain.on('auto-save', (event, data) => {
@@ -164,7 +155,6 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  startWebSocketServer();
   createWindow();
 
   app.on('activate', () => {

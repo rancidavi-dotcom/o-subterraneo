@@ -213,15 +213,20 @@ function broadcastToEveryoneElse(room, senderWs, data) {
 
 server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
-        console.error(`ERRO: A porta ${PORT} já está em uso por outro processo.`);
-        process.exit(0); // Sai silenciosamente se a porta estiver ocupada
+        // Se a porta estiver ocupada, tenta uma porta aleatória (0)
+        console.warn(`Porta ${PORT} ocupada, tentando uma porta aleatória...`);
+        server.listen(0);
     } else {
         console.error("Erro no servidor HTTP:", e);
     }
 });
 
 server.listen(PORT, () => {
-    console.log(`Servidor rodando e aceitando conexões na porta ${PORT}`);
+    const actualPort = server.address().port;
+    console.log(`Servidor rodando e aceitando conexões na porta ${actualPort}`);
+    if (process.send) {
+        process.send({ type: 'server-port', port: actualPort });
+    }
 });
 
 setInterval(() => {
