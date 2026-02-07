@@ -194,6 +194,21 @@
         let isContinuing = false; 
         const PLAYER_ID = Math.random().toString(36).substr(2, 9);
 
+        function checkMultiplayerSave() {
+            const multiSave = localStorage.getItem('osubterraneo_multiplayer_save');
+            const btn = document.getElementById('btn-continue-multiplayer');
+            const nameSpan = document.getElementById('multi-colony-name');
+            if (multiSave && btn && nameSpan) {
+                try {
+                    const data = JSON.parse(multiSave);
+                    nameSpan.innerText = data.colonyName || "Sem Nome";
+                    btn.style.display = 'block';
+                } catch(e) { btn.style.display = 'none'; }
+            } else if (btn) {
+                btn.style.display = 'none';
+            }
+        }
+
         // Adiciona um catcher global de erros para o navegador
         window.onerror = function(msg, url, line) {
             alert("Erro no Script: " + msg + "\nLinha: " + line);
