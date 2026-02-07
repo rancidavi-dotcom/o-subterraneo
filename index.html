@@ -110,14 +110,21 @@
 
         // Load nickname on startup
         document.addEventListener('DOMContentLoaded', () => {
+            console.log("Iniciando Menu...");
+            
+            // Força a exibição do menu principal inicialmente, mas esconde se não tiver nickname
+            showMenu('main-menu');
+
             const nickname = localStorage.getItem('playerNickname');
-            if (nickname) {
+            if (nickname && nickname !== 'null' && nickname !== 'undefined') {
                 playerNickname = nickname;
                 document.getElementById('current-nickname').innerText = playerNickname;
                 document.getElementById('nickname-modal').style.display = 'none';
-                showMenu('main-menu');
             } else {
+                console.log("Apelido não encontrado, abrindo modal...");
                 document.getElementById('nickname-modal').style.display = 'flex';
+                // Garante que o menu principal fique por baixo/escondido
+                document.getElementById('main-menu').style.display = 'none';
             }
             
             // Verificar save rápido
@@ -157,6 +164,7 @@
             localStorage.setItem('playerNickname', playerNickname);
             document.getElementById('current-nickname').innerText = playerNickname;
             document.getElementById('nickname-modal').style.display = 'none';
+            // Garante que o menu principal apareça
             showMenu('main-menu');
         }
 
