@@ -721,6 +721,15 @@ function startGame() {
     }
 
     if (typeof updateHUD === 'function') updateHUD();
+    
+    // Inicializar contador de skip
+    if (window.Multiplayer && window.Multiplayer.GAME_CODE) {
+        setTimeout(() => {
+            const total = 1 + otherPlayers.size;
+            updateSkipUI(0, total);
+        }, 2000); // Espera conexões estabilizarem
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
@@ -2580,9 +2589,16 @@ window.voteSkipIntro = function() {
     }
 };
 
+function updateSkipUI(current, total) {
+    const btn = document.getElementById('btn-skip-intro');
+    if (btn) btn.innerText = `Pular Cutscene (${current}/${total})`;
+}
+
 function finishIntro() {
+    console.log("Finalizando introdução...");
     const overlay = document.getElementById('intro-overlay');
     if (overlay) overlay.style.display = 'none';
+    gamePaused = false; // Garante que o jogo despausa
 }
 
 function processHostAction(action, senderId) {
@@ -2591,9 +2607,10 @@ function processHostAction(action, senderId) {
     switch (action.type) {
         case 'vote_skip_intro':
             skipVotes.add(senderId);
+            // Conta você + outros jogadores do Map
             const totalPlayers = 1 + otherPlayers.size;
             
-            // Atualiza contador em todos os clientes
+            updateSkipUI(skipVotes.size, totalPlayers);
             window.sendMultiplayerAction('update_skip_counter', { 
                 current: skipVotes.size, 
                 total: totalPlayers 

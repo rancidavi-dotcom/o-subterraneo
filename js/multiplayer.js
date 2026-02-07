@@ -238,7 +238,14 @@ function updateOtherPlayer(data) {
         ant.targetY = data.y;
         ant.angle = data.angle;
         if (data.scene) ant.currentMap = data.scene;
-        if (data.name && ant.name === 'Unknown') ant.name = data.name;
+        if (data.name && ant.name === 'Unknown') {
+            ant.name = data.name;
+            // Se for Host, atualiza o contador de skip pois um novo jogador foi identificado
+            if (isMultiplayerHost && typeof updateSkipUI === 'function') {
+                const total = 1 + multiplayerState.otherPlayers.size;
+                sendAction('update_skip_counter', { current: typeof skipVotes !== 'undefined' ? skipVotes.size : 0, total: total });
+            }
+        }
     }
 }
 
