@@ -722,12 +722,23 @@ function startGame() {
 
     if (typeof updateHUD === 'function') updateHUD();
     
-    // Inicializar contador de skip
+    // Inicializar contador de skip com loop de verificação
     if (window.Multiplayer && window.Multiplayer.GAME_CODE) {
-        setTimeout(() => {
+        const skipCheckInterval = setInterval(() => {
+            const overlay = document.getElementById('intro-overlay');
+            if (!overlay || overlay.style.display === 'none') {
+                clearInterval(skipCheckInterval);
+                return;
+            }
             const total = 1 + otherPlayers.size;
-            updateSkipUI(0, total);
-        }, 2000); // Espera conexões estabilizarem
+            const current = typeof skipVotes !== 'undefined' ? skipVotes.size : 0;
+            updateSkipUI(current, total);
+            
+            // Host avisa os outros sobre o total atualizado
+            if (window.multiplayerIsHost()) {
+                window.sendMultiplayerAction('update_skip_counter', { current, total });
+            }
+        }, 1000);
     }
 
     requestAnimationFrame(gameLoop);
@@ -2589,9 +2600,12 @@ window.voteSkipIntro = function() {
     }
 };
 
-function updateSkipUI(current, total) {
+window.updateSkipUI = function(current, total) {
     const btn = document.getElementById('btn-skip-intro');
-    if (btn) btn.innerText = `Pular Cutscene (${current}/${total})`;
+    if (btn) {
+        const displayTotal = total > 0 ? total : 1;
+        btn.innerText = `Pular Cutscene (${current}/${displayTotal})`;
+    }
 }
 
 function finishIntro() {
