@@ -721,6 +721,16 @@ function startGame() {
     requestAnimationFrame(gameLoop);
 }
 
+function synchronize_multiplayer() {
+    if (!window.Multiplayer || !window.Multiplayer.GAME_CODE) return;
+
+    // Se sou cliente, eu apenas recebo. O envio de posição já acontece no loop do multiplayer.js
+    // Mas posso forçar atualizações de UI aqui se necessário.
+    if (!window.multiplayerIsHost()) {
+        if (typeof updateHUD === 'function') updateHUD();
+    }
+}
+
 function serializeGameState() {
     return {
         colonyName,
@@ -728,37 +738,74 @@ function serializeGameState() {
         eggs,
         leaves,
         storedLeaves,
-        workers: workers.map(w => ({
-            x: w.x, y: w.y, type: w.type, task: w.task, hasFood: w.hasFood, currentMap: w.currentMap
-        })),
+        stockpiledLeaves,
+        bigLeaves,
+        mapDroplets,
+        waterDroplets,
+        fungusFood,
+        queenHunger,
+        queenHP: queen ? queen.hp : 100,
         gameYear,
         gameDay,
         gameHour,
         dayProgress,
-        fungusFood
+        // Sincronizar workers com mais detalhes (incluindo HP e Fome)
+        workers: workers.map(w => ({
+            x: w.x, y: w.y, type: w.type, task: w.task, 
+            hasFood: w.hasFood, currentMap: w.currentMap,
+            hp: w.hp, hunger: w.hunger, angle: w.angle
+        }))
     };
 }
 
 function applyGameState(data) {
-    if (!data) return;
+    if (!data || window.multiplayerIsHost()) return;
+
     colonyName = data.colonyName || colonyName;
     chambers = data.chambers || chambers;
-    eggs = data.eggs || eggs;
-    leaves = data.leaves || leaves;
-    storedLeaves = data.storedLeaves || storedLeaves;
+    eggs = data.eggs || [];
+    leaves = data.leaves || [];
+    storedLeaves = data.storedLeaves || [];
+    stockpiledLeaves = data.stockpiledLeaves || [];
+    bigLeaves = data.bigLeaves || [];
+    mapDroplets = data.mapDroplets || [];
+    waterDroplets = data.waterDroplets ?? waterDroplets;
+    fungusFood = data.fungusFood ?? fungusFood;
+    queenHunger = data.queenHunger ?? queenHunger;
+    if (queen && data.queenHP !== undefined) queen.hp = data.queenHP;
+
     gameYear = data.gameYear || gameYear;
     gameDay = data.gameDay || gameDay;
     gameHour = data.gameHour || gameHour;
     dayProgress = data.dayProgress || dayProgress;
-    fungusFood = data.fungusFood || fungusFood;
     
-    // Para workers, precisamos ser cuidadosos para não recriar objetos a cada frame se possível
-    // Mas por enquanto, vamos apenas sincronizar o básico
-    if (data.workers && data.workers.length !== workers.length) {
-        // Se a contagem mudou, talvez valha a pena recriar ou ajustar
-        // (Simplificação: apenas atualiza se for cliente)
+    // Sincronização de Workers (Simples: substitui a lista local pela do Host)
+    if (data.workers) {
+        // Para evitar recriar objetos Ant a cada frame (pesado), 
+        // em um sistema real faríamos um merge por ID. 
+        // Como simplificação para o protótipo, vamos apenas garantir que o número bata.
+        if (workers.length !== data.workers.length) {
+            workers = data.workers.map(dw => {
+                const ant = new Ant(dw.x, dw.y, dw.type);
+                Object.assign(ant, dw);
+                return ant;
+            });
+        } else {
+            // Apenas atualiza as posições dos workers existentes
+            data.workers.forEach((dw, i) => {
+                if (workers[i]) {
+                    workers[i].x = dw.x;
+                    workers[i].y = dw.y;
+                    workers[i].angle = dw.angle;
+                    workers[i].task = dw.task;
+                    workers[i].currentMap = dw.currentMap;
+                    workers[i].hasFood = dw.hasFood;
+                }
+            });
+        }
     }
 }
+
 
 
 // 4. LÓGICA DE MOVIMENTAÇÃO E IA
@@ -1327,7 +1374,7 @@ function renderView(targetQueen, targetCamera, vx, vy, vw, vh) {
         ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Outros Jogadores Online
+    // Outros Jogadores Online (Sincronizados por Cena)
     otherPlayers.forEach(p => {
         if (p.currentMap === currentScene) {
             p.draw(ctx);
@@ -2241,6 +2288,7 @@ function gameLoop() {
         updateGameTimeDisplay(); 
     }
     drawWorld();
+    synchronize_multiplayer();
     requestAnimationFrame(gameLoop);
 }
 

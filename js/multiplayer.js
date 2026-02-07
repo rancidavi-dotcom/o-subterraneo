@@ -110,17 +110,24 @@ function syncMultiplayerLoop() {
     if (now - lastUpdate < UPDATE_RATE) return;
     lastUpdate = now;
 
+    // Pega o estado ATUAL da cena (global do engine.js)
+    const currentSceneValue = typeof currentScene !== 'undefined' ? currentScene : multiplayerState.currentScene;
+
     // Pacote de atualização do jogador
     const updatePayload = {
         x: multiplayerState.queen.x,
         y: multiplayerState.queen.y,
         angle: multiplayerState.queen.angle,
-        scene: multiplayerState.currentScene
+        scene: currentSceneValue,
+        hp: multiplayerState.queen.hp,
+        hunger: typeof queenHunger !== 'undefined' ? queenHunger : 100
     };
 
-    // Se for HOST, anexa o estado do jogo
+    // Se for HOST, anexa o estado do jogo completo
     if (isMultiplayerHost) {
-        updatePayload.gameState = multiplayerState.serializeGameState();
+        if (multiplayerState.serializeGameState) {
+            updatePayload.gameState = multiplayerState.serializeGameState();
+        }
     }
 
     ws.send(JSON.stringify({
