@@ -40,6 +40,16 @@
     <div id="settings-menu-main" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>Configurações</h2>
+            
+            <div style="margin: 20px 0; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #444;">
+                <label style="color: #gold; font-size: 0.9em; display: block; margin-bottom: 8px;">URL do Servidor Multiplayer:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="server-url-settings" placeholder="wss://seu-servidor.com" style="flex: 1; background: #111; border: 1px solid #555; color: #0f0; padding: 8px; border-radius: 4px; font-family: monospace;">
+                    <button onclick="saveServerURL()" style="background: #228b22; padding: 5px 15px; min-width: auto; margin: 0;">Salvar</button>
+                </div>
+                <small style="color: #777; margin-top: 5px; display: block;">Ex: wss://o-subterraneo.onrender.com</small>
+            </div>
+
             <nav class="settings-nav">
                 <button onclick="deleteSaveDataMain()" class="btn-danger">Excluir Mundo Salvo</button>
                 <button onclick="showMenu('main-menu')">Voltar</button>
@@ -80,7 +90,20 @@
             if (autoSave) {
                 document.getElementById('btn-continue').style.display = 'block';
             }
+
+            // Carregar URL do servidor nas configurações
+            const savedUrl = localStorage.getItem('osubterraneo_server_url') || "wss://o-subterraneo.onrender.com";
+            const serverInput = document.getElementById('server-url-settings');
+            if (serverInput) serverInput.value = savedUrl;
         });
+
+        function saveServerURL() {
+            const url = document.getElementById('server-url-settings').value.trim();
+            if (url) {
+                localStorage.setItem('osubterraneo_server_url', url);
+                alert("URL do servidor salva com sucesso!");
+            }
+        }
 
         function savePlayerNickname() {
             const input = document.getElementById('player-nickname-input');
