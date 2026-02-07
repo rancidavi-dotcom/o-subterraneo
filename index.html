@@ -186,12 +186,24 @@
         let isContinuing = false; 
         const PLAYER_ID = Math.random().toString(36).substr(2, 9);
 
+        // Adiciona um catcher global de erros para o navegador
+        window.onerror = function(msg, url, line) {
+            alert("Erro no Script: " + msg + "\nLinha: " + line);
+            return false;
+        };
+
         // Função unificada para garantir conexão antes de enviar comando
         function connectLobby(callback) {
-            if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
+            console.log("connectLobby chamada...");
+            if (!playerNickname) { 
+                const nick = localStorage.getItem('playerNickname');
+                if (nick) playerNickname = nick;
+                else { alert("Defina um apelido primeiro!"); return; }
+            }
             
             // Se já tem conexão aberta, usa ela
             if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+                console.log("Usando conexão existente.");
                 callback(lobbyWs);
                 return;
             }
@@ -206,42 +218,47 @@
                     serverUrl = isLocal ? `ws://localhost:${localServerPort}` : "wss://o-subterraneo.onrender.com";
                 }
 
-                console.log("Conectando ao Lobby:", serverUrl);
+                console.log("Iniciando conexão WebSocket:", serverUrl);
                 try {
                     lobbyWs = new WebSocket(serverUrl);
                 } catch (e) {
-                    alert("URL Inválida: " + serverUrl);
+                    alert("Falha Crítica na URL: " + serverUrl + "\nErro: " + e.message);
                     return;
                 }
 
                 lobbyWs.onmessage = (event) => {
                     try {
                         const msg = JSON.parse(event.data);
+                        console.log("Recebido:", msg.type);
                         handleLobbyMessage(msg);
-                    } catch (e) { console.error("Erro no JSON:", e); }
+                    } catch (e) { console.error("Erro JSON:", e); }
                 };
 
-                lobbyWs.onclose = () => {
+                lobbyWs.onclose = (e) => {
+                    console.log("WebSocket Fechado:", e.code);
                     if (document.getElementById('lobby-screen').style.display === 'flex') {
-                        alert("Conexão perdida.");
+                        alert("A conexão com o servidor caiu.");
                         showMenu('main-menu');
                     }
                 };
 
-                lobbyWs.onerror = (err) => console.error("Erro WS:", err);
+                lobbyWs.onerror = (err) => {
+                    console.error("Erro WebSocket:", err);
+                    alert("Não foi possível conectar ao servidor. Verifique se ele está rodando.");
+                };
             }
 
             // Aguarda abrir
             if (lobbyWs.readyState === WebSocket.CONNECTING) {
+                console.log("Aguardando conexão abrir...");
                 const onOpen = () => {
+                    console.log("Conexão aberta com sucesso!");
                     lobbyWs.removeEventListener('open', onOpen);
                     callback(lobbyWs);
                 };
                 lobbyWs.addEventListener('open', onOpen);
             } else if (lobbyWs.readyState === WebSocket.OPEN) {
                 callback(lobbyWs);
-            } else {
-                alert("Servidor indisponível. Verifique as Opções.");
             }
         }
 
@@ -260,10 +277,10 @@
                     window.location.href = `game.html?mode=${mode}&host=${isHost}&code=${currentRoomCode}`;
                     break;
                 case 'error':
-                    alert(msg.message);
+                    alert("Erro do Servidor: " + msg.message);
                     break;
                 case 'host_disconnected':
-                    alert("O Host saiu.");
+                    alert("O Host encerrou a sala.");
                     showMenu('main-menu');
                     break;
             }
@@ -299,10 +316,14 @@
         }
 
         function lobbyCreateRoom() {
+            console.log("Botão Criar clicado");
             isContinuing = false;
-            connectLobby((ws) => ws.send(JSON.stringify({
-                type: 'create_room', payload: { id: PLAYER_ID, name: playerNickname }
-            })));
+            connectLobby((ws) => {
+                console.log("Enviando create_room...");
+                ws.send(JSON.stringify({
+                    type: 'create_room', payload: { id: PLAYER_ID, name: playerNickname }
+                }));
+            });
         }
 
         function lobbyContinueRoom() {
@@ -313,10 +334,12 @@
         }
 
         function lobbyJoinPrompt() {
+            console.log("Botão Entrar clicado");
             const code = prompt("Digite o código da sala:");
             if (!code) return;
             isContinuing = false;
             connectLobby((ws) => {
+                console.log("Enviando join_room para:", code);
                 ws.send(JSON.stringify({
                     type: 'join_room', code: code.toUpperCase(), payload: { id: PLAYER_ID, name: playerNickname }
                 }));
