@@ -2603,11 +2603,25 @@ window.voteSkipIntro = function() {
     }
 };
 
+window.forceSkipForAll = function() {
+    if (window.multiplayerIsHost()) {
+        console.log("Host forçando skip para todos...");
+        window.sendMultiplayerAction('force_skip_intro');
+        finishIntro();
+    }
+};
+
 window.updateSkipUI = function(current, total) {
     const btn = document.getElementById('btn-skip-intro');
     if (btn) {
         const displayTotal = total > 0 ? total : 1;
         btn.innerText = `Pular Cutscene (${current}/${displayTotal})`;
+    }
+
+    // Mostra o botão de força bruta apenas para o Host
+    const forceBtn = document.getElementById('btn-force-skip');
+    if (forceBtn) {
+        forceBtn.style.display = window.multiplayerIsHost() ? 'inline-block' : 'none';
     }
 }
 

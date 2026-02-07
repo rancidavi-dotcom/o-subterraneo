@@ -198,8 +198,12 @@ function handleServerMessage(msg) {
             } else {
                 // CLIENTE: Recebe comandos forçados pelo Host
                 if (msg.action.type === 'force_skip_intro') {
-                    const overlay = document.getElementById('intro-overlay');
-                    if (overlay) overlay.style.display = 'none';
+                    if (typeof finishIntro === 'function') {
+                        finishIntro();
+                    } else {
+                        const overlay = document.getElementById('intro-overlay');
+                        if (overlay) overlay.style.display = 'none';
+                    }
                 } else if (msg.action.type === 'update_skip_counter') {
                     const btn = document.getElementById('btn-skip-intro');
                     if (btn) btn.innerText = `Pular Cutscene (${msg.action.current}/${msg.action.total})`;
