@@ -725,17 +725,21 @@ function startGame() {
     
     // Inicializar contador de skip com loop de verificação
     if (window.Multiplayer && window.Multiplayer.GAME_CODE) {
+        const urlPlayerCount = parseInt(urlParams.get('players')) || 1;
+        updateSkipUI(0, urlPlayerCount); // Define o valor IMEDIATO vindo do Lobby
+
         const skipCheckInterval = setInterval(() => {
             const overlay = document.getElementById('intro-overlay');
             if (!overlay || overlay.style.display === 'none') {
                 clearInterval(skipCheckInterval);
                 return;
             }
-            const total = 1 + otherPlayers.size;
+            // Recalcula dinamicamente se mais gente entrar ou se a rede atualizar
+            const networkPlayerCount = 1 + otherPlayers.size;
+            const total = Math.max(urlPlayerCount, networkPlayerCount);
             const current = typeof skipVotes !== 'undefined' ? skipVotes.size : 0;
             updateSkipUI(current, total);
             
-            // Host avisa os outros sobre o total atualizado
             if (window.multiplayerIsHost()) {
                 window.sendMultiplayerAction('update_skip_counter', { current, total });
             }

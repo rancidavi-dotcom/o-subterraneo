@@ -299,7 +299,8 @@
                     break;
                 case 'game_started':
                     const mode = isContinuing ? 'continue_multi' : 'new';
-                    window.location.href = `game.html?mode=${mode}&host=${isHost}&code=${currentRoomCode}`;
+                    const playerCount = document.querySelectorAll('#player-list li').length || 1;
+                    window.location.href = `game.html?mode=${mode}&host=${isHost}&code=${currentRoomCode}&players=${playerCount}`;
                     break;
                 case 'error':
                     alert("Erro do Servidor: " + msg.message);
@@ -399,7 +400,12 @@
         }
 
         function lobbyStartGame() {
-            if (lobbyWs) lobbyWs.send(JSON.stringify({ type: 'start_game', code: currentRoomCode }));
+            if (lobbyWs) {
+                // Conta quantos jogadores estão na lista antes de iniciar
+                const playerCount = document.querySelectorAll('#player-list li').length;
+                localStorage.setItem('osubterraneo_last_player_count', playerCount);
+                lobbyWs.send(JSON.stringify({ type: 'start_game', code: currentRoomCode }));
+            }
         }
 
         function lobbyLeave() {
