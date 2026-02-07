@@ -55,6 +55,14 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
+wss.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        // Silencioso, o listener do 'server' já trata
+    } else {
+        console.error("Erro no servidor WebSocket:", e);
+    }
+});
+
 console.log(`Servidor iniciado na porta ${PORT}`);
 
 const rooms = {};
