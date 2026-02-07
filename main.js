@@ -6,16 +6,31 @@ const { exec } = require('child_process');
 let phpServer = null;
 
 function startWebSocketServer() {
-    const { fork } = require('child_process');
-    const serverPath = path.join(__dirname, 'server.js');
-    
-    if (phpServer) return; // Já está rodando
+    const net = require('net');
+    const serverCheck = net.createServer();
 
-    phpServer = fork(serverPath, [], {
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+    // Tenta abrir um servidor temporário para ver se a porta está livre
+    serverCheck.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.log('Servidor já está rodando em outra instância. Ignorando inicialização.');
+        }
     });
 
-    console.log('Servidor WebSocket iniciado automaticamente na porta 8080');
+    serverCheck.once('listening', () => {
+        serverCheck.close();
+        const { fork } = require('child_process');
+        const serverPath = path.join(__dirname, 'server.js');
+        
+        if (phpServer) return;
+
+        phpServer = fork(serverPath, [], {
+            stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+        });
+
+        console.log('Servidor WebSocket iniciado automaticamente na porta 8080');
+    });
+
+    serverCheck.listen(8080);
 }
 
 function createWindow() {

@@ -203,6 +203,15 @@ function broadcastToEveryoneElse(room, senderWs, data) {
     room.clients.forEach(client => { if (client !== senderWs && client.readyState === WebSocket.OPEN) client.send(msg); });
 }
 
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        console.error(`ERRO: A porta ${PORT} já está em uso por outro processo.`);
+        process.exit(0); // Sai silenciosamente se a porta estiver ocupada
+    } else {
+        console.error("Erro no servidor HTTP:", e);
+    }
+});
+
 server.listen(PORT, () => {
     console.log(`Servidor rodando e aceitando conexões na porta ${PORT}`);
 });
