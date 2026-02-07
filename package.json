@@ -1,0 +1,51 @@
+{
+  "name": "o-subterraneo",
+  "version": "1.0.0",
+  "description": "O Subterrâneo: A Ascensão do Império - Simulador Ultra-Realista de Formigueiro",
+  "main": "main.js",
+  "homepage": "https://github.com/davi/osubterraneo",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "render-start": "node server.js",
+    "build:linux": "electron-builder --linux",
+    "build:win": "electron-builder --windows",
+    "build:all": "electron-builder --linux --windows"
+  },
+  "author": {
+    "name": "Davi",
+    "email": "davi@exemplo.com"
+  },
+  "license": "MIT",
+  "build": {
+    "appId": "com.davi.osubterraneo",
+    "productName": "O Subterrâneo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!saves/*",
+      "!client-data/*",
+      "!dist/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/sprites/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}
