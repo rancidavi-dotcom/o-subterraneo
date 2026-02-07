@@ -761,6 +761,7 @@ function serializeGameState() {
 function applyGameState(data) {
     if (!data || window.multiplayerIsHost()) return;
 
+    // Sincronização básica do mundo
     colonyName = data.colonyName || colonyName;
     chambers = data.chambers || chambers;
     eggs = data.eggs || [];
@@ -771,19 +772,21 @@ function applyGameState(data) {
     mapDroplets = data.mapDroplets || [];
     waterDroplets = data.waterDroplets ?? waterDroplets;
     fungusFood = data.fungusFood ?? fungusFood;
-    queenHunger = data.queenHunger ?? queenHunger;
-    if (queen && data.queenHP !== undefined) queen.hp = data.queenHP;
-
+    
+    // Sincronização de Tempo
     gameYear = data.gameYear || gameYear;
     gameDay = data.gameDay || gameDay;
     gameHour = data.gameHour || gameHour;
     dayProgress = data.dayProgress || dayProgress;
-    
-    // Sincronização de Workers (Simples: substitui a lista local pela do Host)
+
+    // Sincronização de Status (Rainha Compartilhada)
+    queenHunger = data.queenHunger ?? queenHunger;
+    if (queen && data.queenHP !== undefined) {
+        queen.hp = data.queenHP;
+    }
+
+    // Sincronização de Workers (Refletir o Host)
     if (data.workers) {
-        // Para evitar recriar objetos Ant a cada frame (pesado), 
-        // em um sistema real faríamos um merge por ID. 
-        // Como simplificação para o protótipo, vamos apenas garantir que o número bata.
         if (workers.length !== data.workers.length) {
             workers = data.workers.map(dw => {
                 const ant = new Ant(dw.x, dw.y, dw.type);
@@ -791,7 +794,6 @@ function applyGameState(data) {
                 return ant;
             });
         } else {
-            // Apenas atualiza as posições dos workers existentes
             data.workers.forEach((dw, i) => {
                 if (workers[i]) {
                     workers[i].x = dw.x;
@@ -800,10 +802,15 @@ function applyGameState(data) {
                     workers[i].task = dw.task;
                     workers[i].currentMap = dw.currentMap;
                     workers[i].hasFood = dw.hasFood;
+                    workers[i].hp = dw.hp;
+                    workers[i].hunger = dw.hunger;
                 }
             });
         }
     }
+    
+    // Atualiza HUD local para refletir dados do host
+    if (typeof updateHUD === 'function') updateHUD();
 }
 
 
@@ -2211,35 +2218,40 @@ function updateGameTimeDisplay() {
 
 function gameLoop() {
     if (!gamePaused) {
-        dayProgress += (1 / 60) / DAY_LENGTH_SECONDS; 
-        gameHour = Math.floor(dayProgress * HOURS_PER_DAY); 
+        // CLIENTES: Apenas o Host processa o tempo e os recursos
+        if (window.multiplayerIsHost()) {
+            dayProgress += (1 / 60) / DAY_LENGTH_SECONDS; 
+            gameHour = Math.floor(dayProgress * HOURS_PER_DAY); 
 
-        if (dayProgress >= 1.0) {
-            dayProgress = 0.0;
-            gameDay++;
-            gameHour = 6; 
-            
-            // Cada estação dura 6 dias (5 estações * 6 dias = 30 dias por ano)
-            currentSeasonIndex = Math.floor((gameDay - 1) / 6);
-            if (currentSeasonIndex > 4) currentSeasonIndex = 4;
+            if (dayProgress >= 1.0) {
+                dayProgress = 0.0;
+                gameDay++;
+                gameHour = 6; 
+                
+                currentSeasonIndex = Math.floor((gameDay - 1) / 6);
+                if (currentSeasonIndex > 4) currentSeasonIndex = 4;
 
-            if (gameDay > 30) { 
-                gameDay = 1;
-                gameYear++;
-                currentSeasonIndex = 0;
+                if (gameDay > 30) { 
+                    gameDay = 1;
+                    gameYear++;
+                    currentSeasonIndex = 0;
+                }
             }
+
+            updateEggs(); updateWorkersAI(); 
+            updateResources(); // DINÂMICA DE ESTAÇÕES
+            updateHunger(); // SISTEMA DE FOME
         }
 
-        updateEggs(); updateWorkersAI(); 
         updateStatsUI(); // Atualiza o relatório se estiver aberto
-        updateResources(); // DINÂMICA DE ESTAÇÕES
-        updateHunger(); // SISTEMA DE FOME
         updatePheromones(); // SISTEMA DE FEROMÔNIOS
         updateParticles(); // SISTEMA DE PARTÍCULAS
         updateUISentinels(); // SISTEMA DE SENTINELAS DE UI
         
-        // Remover formigas mortas da lista
-        workers = workers.filter(w => !w.isDead);
+        // Remover formigas mortas da lista (Host decide)
+        if (window.multiplayerIsHost()) {
+            workers = workers.filter(w => !w.isDead);
+        }
 
         // Atualizar posição das folhas gigantes sendo carregadas
         bigLeaves.forEach(bl => {
@@ -2262,23 +2274,28 @@ function gameLoop() {
         if (currentScene === "surface") {
             const potentialTargets = [queen, ...workers.filter(w => w.currentMap === "surface")];
             
-            // Multiplicador de agressividade noturna (raio de detecção aumenta à noite)
+            // Multiplicador de agressividade noturna
             const nightMultiplier = nightOverlayAlpha > 0.3 ? 2.0 : 1.0;
             
             creatures.forEach(c => {
-                // Temporariamente aumenta o raio de detecção se for noite
-                const originalRange = c.detectionRange;
-                c.detectionRange *= nightMultiplier;
-                c.update(potentialTargets);
-                c.detectionRange = originalRange; // Restaura para não acumular
+                if (window.multiplayerIsHost()) {
+                    const originalRange = c.detectionRange;
+                    c.detectionRange *= nightMultiplier;
+                    c.update(potentialTargets);
+                    c.detectionRange = originalRange;
+                }
             });
 
-            updateCombat();
-            checkProximityAlerts();
+            if (window.multiplayerIsHost()) {
+                updateCombat();
+                checkProximityAlerts();
+            }
         }
         if (queen) { 
             queen.update();
-            updateQueenLogic(queen); // Passa a rainha como parâmetro
+            if (window.multiplayerIsHost()) {
+                updateQueenLogic(queen);
+            }
             if (controlMode !== 'mouse') handleWASD();
         }
         for (const playerAnt of otherPlayers.values()) {

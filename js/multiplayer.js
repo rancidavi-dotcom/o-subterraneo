@@ -266,6 +266,9 @@ function initializeMultiplayer(engineState) {
     // Detecta se é Host pela URL
     const params = new URLSearchParams(window.location.search);
     isMultiplayerHost = params.get('host') === 'true';
+    
+    // Sincroniza a variável global do engine se ela existir
+    if (typeof isHost !== 'undefined') isHost = isMultiplayerHost;
 
     if (multiplayerState.GAME_CODE) {
         connectToMultiplayer();
