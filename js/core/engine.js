@@ -816,7 +816,7 @@ function updateCombat() {
         });
 
         // Rainha ataca criatura (se estiver perto)
-        const queens = [queen, queen2].filter(q => q && !q.isDead);
+        const queens = [queen].filter(q => q && !q.isDead);
         queens.forEach(q => {
             const dQ = Math.sqrt(Math.pow(q.x - c.x, 2) + Math.pow(q.y - c.y, 2));
             if (dQ < 60) {
@@ -833,7 +833,7 @@ function updateCombat() {
         if (c.type === 'spider' || c.type === 'beetle' || Math.random() < 0.05) { // Aumentei chance de agressividade random
             const now = Date.now();
             if (now - (c.lastAttackTime || 0) > 800) { // Cooldown reduzido para 800ms
-                const targets = [...workers, queen, queen2];
+                const targets = [...workers, queen];
                 let hitAny = false;
 
                 targets.forEach(ant => {
@@ -1909,20 +1909,11 @@ function updatePheromones() {
 function updateHunger() {
     if (gamePaused) return;
 
-    // 1. FOME DA RAINHA 1
+    // 1. FOME DA RAINHA
     queenHunger -= (1 / 60) * 0.3;
     if (queenHunger < 0) {
         queenHunger = 0;
         queen.takeDamage(0.05); 
-    }
-
-    // 1.2 FOME DA RAINHA 2
-    if (queen2) {
-        queen2Hunger -= (1 / 60) * 0.3;
-        if (queen2Hunger < 0) {
-            queen2Hunger = 0;
-            queen2.takeDamage(0.05);
-        }
     }
 
     // Atualizar Barras na UI
@@ -1930,11 +1921,6 @@ function updateHunger() {
     const hpBar = document.getElementById('queen-hp-bar');
     if (hungerBar) hungerBar.style.width = `${queenHunger}%`;
     if (hpBar && queen) hpBar.style.width = `${(queen.hp / queen.maxHp) * 100}%`;
-
-    const hungerBarP2 = document.getElementById('queen-hunger-bar-p2');
-    const hpBarP2 = document.getElementById('queen-hp-bar-p2');
-    if (hungerBarP2) hungerBarP2.style.width = `${queen2Hunger}%`;
-    if (hpBarP2 && queen2) hpBarP2.style.width = `${(queen2.hp / queen2.maxHp) * 100}%`;
 
     // 2. FOME DAS FORMIGAS (Individual)
     workers.forEach(w => {
@@ -2256,65 +2242,6 @@ function handleWASD() {
         queen.isMoving = true;
     }
 }
-
-let lastButtons = []; // Para detectar clique (apertou e soltou)
-
-function handleGamepad() {
-    if (gamePaused || !queen2) return;
-    const gamepads = navigator.getGamepads();
-    const gp = gamepads[0]; 
-    if (!gp) return;
-
-    let stickX = gp.axes[0];
-    let stickY = gp.axes[1];
-
-    if (Math.abs(stickX) < 0.2) stickX = 0;
-    if (Math.abs(stickY) < 0.2) stickY = 0;
-
-    if (stickX !== 0 || stickY !== 0) {
-        queen2.targetX = queen2.x + stickX * 100;
-        queen2.targetY = queen2.y + stickY * 100;
-        queen2.isMoving = true;
-    }
-
-    // Lógica de Detecção de Botão (Just Pressed)
-    const currentButtons = gp.buttons.map(b => b.pressed);
-    
-    // Botão A (0) - Trocar de Cena
-    if (currentButtons[0] && !lastButtons[0] && !isTransitioning) {
-        const distH = Math.sqrt(Math.pow(queen2.x - CX, 2) + Math.pow(queen2.y - CY, 2));
-        if (distH < 150) switchScene(currentScene === "surface" ? "underground" : "surface");
-    }
-
-    // Botão X (2) - Gaveta de Formigas J2
-    if (currentButtons[2] && !lastButtons[2]) toggleSidebar('ant-sidebar-p2');
-
-    // Botão Y (3) - Gaveta de Evolução J2
-    if (currentButtons[3] && !lastButtons[3]) toggleSidebar('caste-sidebar-p2');
-
-    // Botão B (1) - Gaveta de Trabalho J2
-    if (currentButtons[1] && !lastButtons[1]) toggleSidebar('work-sidebar-p2');
-
-    // --- AÇÕES DE CONTEXTO (Se menus estiverem abertos) ---
-    
-    // Se Evolução J2 estiver aberta
-    if (document.getElementById('caste-sidebar-p2').classList.contains('open')) {
-        if (currentButtons[4] && !lastButtons[4]) generateWorkerAnt('worker'); // LB
-        if (currentButtons[5] && !lastButtons[5]) generateWorkerAnt('soldier'); // RB
-    }
-
-    // Se Trabalho J2 estiver aberta
-    if (document.getElementById('work-sidebar-p2').classList.contains('open')) {
-        if (currentButtons[14] && !lastButtons[14]) changeTask('food', -1); // D-Pad Left
-        if (currentButtons[15] && !lastButtons[15]) changeTask('food', 1);  // D-Pad Right
-    }
-
-    // Botão Start/Options (9) - Construções
-    if (currentButtons[9] && !lastButtons[9]) toggleConstructionHUD();
-
-    lastButtons = currentButtons;
-}
-
 
 canvas.addEventListener('mousedown', (e) => {
     if (gamePaused || !queen) return;
