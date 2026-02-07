@@ -345,7 +345,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const HOST_IP = urlParams.get('host') || 'localhost';
 let GAME_CODE = urlParams.get('code') || ''; 
 let myPlayerNickname = localStorage.getItem('playerNickname') || urlParams.get('nickname') || "Visitante"; 
-const API_URL = `wss://o-subterraneo.onrender.com`; // URL do Render
+const API_URL = localStorage.getItem('osubterraneo_server_url') || `wss://o-subterraneo.onrender.com`; 
 
 let isHost = urlParams.get('host') === 'true'; 
 if (urlParams.get('code')) GAME_CODE = urlParams.get('code');
@@ -559,6 +559,18 @@ function initGame(showEffect) {
                 alert('Erro ao carregar o save de arquivo. Iniciando um novo jogo.');
                 localStorage.removeItem('temp_save_data');
             }
+        }
+        startGame();
+    } else if (mode === 'continue_multi') {
+        console.log('initGame: Restoring multiplayer world state...');
+        const multiSave = localStorage.getItem('osubterraneo_multiplayer_save');
+        if (multiSave) {
+            try {
+                const data = JSON.parse(multiSave);
+                const loadedVersion = data.saveVersion ?? 0;
+                const migratedData = migrateSaveData(data, loadedVersion);
+                applyLoadedData(migratedData);
+            } catch (e) { console.error("Erro ao carregar save multiplayer", e); }
         }
         startGame();
     } else { // 'continue' mode or default
@@ -2335,19 +2347,23 @@ function saveGame() {
     }));
 
     const saveData = { 
-        queen:{x:queen.x,y:queen.y}, 
+        queen:{x:queen.x,y:queen.y, hp:queen.hp}, 
         colonyName, chambers, zoom, controlMode, gregCongratulated, 
         eggs, leaves, 
         seeds: sanitizedSeeds, 
         storedLeaves, fungusFood, 
         workers: workers.map(w=>({
             x:w.x, y:w.y, task:w.task, hasFood:w.hasFood, 
-            hasSeed:w.hasSeed, currentMap:w.currentMap, type:w.type
+            hasSeed:w.hasSeed, currentMap:w.currentMap, type:w.type, hp:w.hp, hunger:w.hunger
         })), 
         gameYear, gameDay, gameHour 
     };
-    localStorage.setItem('osubterraneo_save', JSON.stringify(saveData));
-    console.log('Jogo salvo no localStorage');
+
+    const isMulti = window.Multiplayer && window.Multiplayer.GAME_CODE;
+    const saveKey = isMulti ? 'osubterraneo_multiplayer_save' : 'osubterraneo_save';
+    
+    localStorage.setItem(saveKey, JSON.stringify(saveData));
+    console.log(`Jogo salvo no localStorage (${isMulti ? 'Multiplayer' : 'Solo'})`);
 }
 function setColonyName(n) { colonyName = n; let d = document.getElementById('colony-display-name') || document.createElement('div'); d.id='colony-display-name'; d.innerText = `Formigueiro: ${n}`; if(!document.getElementById('colony-display-name')) document.getElementById('game-container').appendChild(d); }
 function confirmColonyName() { 

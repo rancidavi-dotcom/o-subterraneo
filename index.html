@@ -39,7 +39,8 @@
     <div id="multiplayer-menu" class="menu-screen" style="display: none;">
         <h1>MULTIPLAYER</h1>
         <nav>
-            <button onclick="lobbyCreateRoom()" style="background: #228b22;">Criar Nova Sala</button>
+            <button id="btn-continue-multiplayer" style="display: none; background: #228b22;" onclick="lobbyContinueRoom()">Continuar lobby: <span id="multi-colony-name"></span></button>
+            <button onclick="lobbyCreateRoom()" style="background: #2b532b;">Criar Nova Sala (Novo Mundo)</button>
             <button onclick="lobbyJoinPrompt()">Entrar em Sala</button>
             <button onclick="showMenu('main-menu')">Voltar</button>
         </nav>
@@ -157,7 +158,22 @@
         let lobbyWs = null;
         let currentRoomCode = null;
         let isHost = false;
+        let isContinuing = false; // Flag para saber se é um save carregado
         const PLAYER_ID = Math.random().toString(36).substr(2, 9);
+
+        function checkMultiplayerSave() {
+            const multiSave = localStorage.getItem('osubterraneo_multiplayer_save');
+            const btn = document.getElementById('btn-continue-multiplayer');
+            if (multiSave) {
+                try {
+                    const data = JSON.parse(multiSave);
+                    document.getElementById('multi-colony-name').innerText = data.colonyName || "Sem Nome";
+                    btn.style.display = 'block';
+                } catch(e) { btn.style.display = 'none'; }
+            } else {
+                btn.style.display = 'none';
+            }
+        }
 
         function getLobbyWs() {
             if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) return lobbyWs;
@@ -189,7 +205,8 @@
                     showLobby(msg.players);
                     break;
                 case 'game_started':
-                    window.location.href = `game.html?mode=new&host=${isHost}&code=${currentRoomCode}`;
+                    const mode = isContinuing ? 'continue_multi' : 'new';
+                    window.location.href = `game.html?mode=${mode}&host=${isHost}&code=${currentRoomCode}`;
                     break;
                 case 'error':
                     alert(msg.message);
@@ -232,6 +249,18 @@
         }
 
         function lobbyCreateRoom() {
+            isContinuing = false;
+            const ws = getLobbyWs();
+            const start = () => ws.send(JSON.stringify({
+                type: 'create_room',
+                payload: { id: PLAYER_ID, name: playerNickname }
+            }));
+            if (ws.readyState === WebSocket.OPEN) start();
+            else ws.onopen = start;
+        }
+
+        function lobbyContinueRoom() {
+            isContinuing = true;
             const ws = getLobbyWs();
             const start = () => ws.send(JSON.stringify({
                 type: 'create_room',
@@ -242,6 +271,7 @@
         }
 
         function lobbyJoinPrompt() {
+            isContinuing = false;
             const code = prompt("Digite o código da sala:");
             if (code) {
                 const ws = getLobbyWs();
@@ -293,6 +323,7 @@
             document.getElementById('nickname-modal').style.display = 'none';
             if (menuId) {
                 document.getElementById(menuId).style.display = 'block';
+                if (menuId === 'multiplayer-menu') checkMultiplayerSave();
             }
         }
 
