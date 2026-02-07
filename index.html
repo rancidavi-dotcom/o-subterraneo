@@ -140,10 +140,19 @@
         });
 
         function saveServerURL() {
-            const url = document.getElementById('server-url-settings').value.trim();
+            let url = document.getElementById('server-url-settings').value.trim();
             if (url) {
+                // Adiciona protocolo se o usuário esqueceu
+                if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+                    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+                        url = 'ws://' + url;
+                    } else {
+                        url = 'wss://' + url;
+                    }
+                    document.getElementById('server-url-settings').value = url;
+                }
                 localStorage.setItem('osubterraneo_server_url', url);
-                alert("URL do servidor salva com sucesso!");
+                alert("URL do servidor salva com sucesso!\nUsando: " + url);
             }
         }
 
@@ -304,6 +313,7 @@
             if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
             isContinuing = false;
             const ws = getLobbyWs();
+            if (!ws) return; // Proteção contra crash se a URL for inválida
             
             const sendCreate = () => {
                 console.log("Enviando pedido de criação de sala...");
@@ -316,9 +326,9 @@
             if (ws.readyState === WebSocket.OPEN) sendCreate();
             else if (ws.readyState === WebSocket.CONNECTING) {
                 const oldOpen = ws.onopen;
-                ws.onopen = (e) => { if(oldOpen) oldOpen(e); sendCreate(); };
+                ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendCreate(); };
             } else {
-                alert("Falha ao conectar. Tente novamente.");
+                alert("O servidor está offline ou a URL está incorreta.");
             }
         }
 
@@ -326,6 +336,7 @@
             if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
             isContinuing = true;
             const ws = getLobbyWs();
+            if (!ws) return;
             
             const sendCreate = () => {
                 console.log("Enviando pedido de continuação de sala...");
@@ -338,7 +349,7 @@
             if (ws.readyState === WebSocket.OPEN) sendCreate();
             else if (ws.readyState === WebSocket.CONNECTING) {
                 const oldOpen = ws.onopen;
-                ws.onopen = (e) => { if(oldOpen) oldOpen(e); sendCreate(); };
+                ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendCreate(); };
             }
         }
 
@@ -348,6 +359,7 @@
             if (code) {
                 isContinuing = false;
                 const ws = getLobbyWs();
+                if (!ws) return; // Proteção contra crash
                 
                 const sendJoin = () => {
                     console.log("Enviando pedido de entrada na sala:", code.toUpperCase());
@@ -363,7 +375,9 @@
                 if (ws.readyState === WebSocket.OPEN) sendJoin();
                 else if (ws.readyState === WebSocket.CONNECTING) {
                     const oldOpen = ws.onopen;
-                    ws.onopen = (e) => { if(oldOpen) oldOpen(e); sendJoin(); };
+                    ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendJoin(); };
+                } else {
+                    alert("Não foi possível conectar ao servidor para entrar na sala.");
                 }
             }
         }
