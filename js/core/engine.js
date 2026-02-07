@@ -39,6 +39,7 @@ let gamePaused = false;
 let isMouseDown = false;
 let colonyName = "";
 let gregCongratulated = false;
+let skipVotes = new Set(); // Declarado globalmente
 const PLAYER_ID = Math.random().toString(36).substr(2, 9);
 
 let gameDay = 1;
@@ -2589,8 +2590,6 @@ function executeBuild(t) {
     if (typeof updateHUD === 'function') updateHUD();
     saveGame(); 
 }
-
-let skipVotes = new Set();
 
 window.voteSkipIntro = function() {
     if (window.Multiplayer && window.Multiplayer.GAME_CODE) {
