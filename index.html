@@ -67,13 +67,14 @@
             <h2>Configurações</h2>
             
             <div style="margin: 20px 0; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #444;">
-                <label style="color: #gold; font-size: 0.9em; display: block; margin-bottom: 8px;">URL do Servidor Multiplayer:</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="server-url-settings" placeholder="Ex: ws://localhost:8888" style="flex: 1; background: #111; border: 1px solid #555; color: #0f0; padding: 8px; border-radius: 4px; font-family: monospace;">
+                <label style="color: gold; font-size: 0.9em; display: block; margin-bottom: 8px;">URL do Servidor Multiplayer:</label>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <input type="text" id="server-url-settings" placeholder="Ex: ws://localhost:8888" style="flex: 1; min-width: 200px; background: #111; border: 1px solid #555; color: #0f0; padding: 8px; border-radius: 4px; font-family: monospace;">
                     <button onclick="saveServerURL()" style="background: #228b22; padding: 5px 15px; min-width: auto; margin: 0;">Salvar</button>
+                    <button onclick="copyCurrentInstanceURL()" style="background: #444; padding: 5px 10px; min-width: auto; margin: 0; font-size: 0.8em;">Copiar Meu Endereço</button>
                 </div>
-                <small id="current-instance-info" style="color: #0f0; margin-top: 5px; display: block; font-family: monospace;">Detectando porta local...</small>
-                <small style="color: #777; margin-top: 5px; display: block;">Deixe vazio para usar o servidor desta janela (Auto-detectar).</small>
+                <small id="current-instance-info" style="color: #0f0; margin-top: 8px; display: block; font-family: monospace; font-size: 0.85em;">Detectando porta local...</small>
+                <small style="color: #777; margin-top: 5px; display: block;">Cole aqui o endereço da janela que criou a sala.</small>
             </div>
 
             <nav class="settings-nav">
@@ -182,74 +183,66 @@
         let lobbyWs = null;
         let currentRoomCode = null;
         let isHost = false;
-        let isContinuing = false; // Flag para saber se é um save carregado
+        let isContinuing = false; 
         const PLAYER_ID = Math.random().toString(36).substr(2, 9);
 
-        function checkMultiplayerSave() {
-            const multiSave = localStorage.getItem('osubterraneo_multiplayer_save');
-            const btn = document.getElementById('btn-continue-multiplayer');
-            if (multiSave) {
-                try {
-                    const data = JSON.parse(multiSave);
-                    document.getElementById('multi-colony-name').innerText = data.colonyName || "Sem Nome";
-                    btn.style.display = 'block';
-                } catch(e) { btn.style.display = 'none'; }
-            } else {
-                btn.style.display = 'none';
+        // Função unificada para garantir conexão antes de enviar comando
+        function connectLobby(callback) {
+            if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
+            
+            // Se já tem conexão aberta, usa ela
+            if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+                callback(lobbyWs);
+                return;
             }
-        }
 
-        function getLobbyWs() {
-            if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) return lobbyWs;
-            
-            let serverUrl = localStorage.getItem('osubterraneo_server_url');
-            if (!serverUrl) {
-                // Se estiver no Electron (file:) ou localhost, usa a porta dinâmica local
-                const isLocal = window.location.hostname === 'localhost' || 
-                                window.location.hostname === '127.0.0.1' || 
-                                window.location.protocol === 'file:';
-                
-                serverUrl = isLocal
-                    ? `ws://localhost:${localServerPort}`
-                    : "wss://o-subterraneo.onrender.com";
-            }
-            
-            console.log("Tentando conectar ao Lobby:", serverUrl);
-            try {
-                lobbyWs = new WebSocket(serverUrl);
-            } catch (e) {
-                console.error("Erro fatal ao criar WebSocket:", e);
-                alert("URL de servidor inválida! Corrija nas Opções.\nErro: " + e.message);
-                return null;
-            }
-            
-            lobbyWs.onopen = () => {
-                console.log("Conectado ao servidor de Lobby!");
-            };
+            // Se está fechado ou não existe, cria novo
+            if (!lobbyWs || lobbyWs.readyState === WebSocket.CLOSED || lobbyWs.readyState === WebSocket.CLOSING) {
+                let serverUrl = localStorage.getItem('osubterraneo_server_url');
+                if (!serverUrl) {
+                    const isLocal = window.location.hostname === 'localhost' || 
+                                    window.location.hostname === '127.0.0.1' || 
+                                    window.location.protocol === 'file:';
+                    serverUrl = isLocal ? `ws://localhost:${localServerPort}` : "wss://o-subterraneo.onrender.com";
+                }
 
-            lobbyWs.onmessage = (event) => {
+                console.log("Conectando ao Lobby:", serverUrl);
                 try {
-                    const msg = JSON.parse(event.data);
-                    console.log("Mensagem do Lobby:", msg.type, msg);
-                    handleLobbyMessage(msg);
+                    lobbyWs = new WebSocket(serverUrl);
                 } catch (e) {
-                    console.error("Erro ao processar mensagem do lobby:", e);
+                    alert("URL Inválida: " + serverUrl);
+                    return;
                 }
-            };
 
-            lobbyWs.onerror = (err) => {
-                console.error("Erro no WebSocket do Lobby:", err);
-                alert("Não foi possível conectar ao servidor. Verifique a URL nas Opções ou se o servidor está rodando.");
-            };
+                lobbyWs.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        handleLobbyMessage(msg);
+                    } catch (e) { console.error("Erro no JSON:", e); }
+                };
 
-            lobbyWs.onclose = (e) => {
-                console.log("Conexão do Lobby fechada:", e.code, e.reason);
-                if (document.getElementById('lobby-screen').style.display === 'block') {
-                    alert("Conexão perdida com o servidor.");
-                    showMenu('main-menu');
-                }
-            };
-            return lobbyWs;
+                lobbyWs.onclose = () => {
+                    if (document.getElementById('lobby-screen').style.display === 'flex') {
+                        alert("Conexão perdida.");
+                        showMenu('main-menu');
+                    }
+                };
+
+                lobbyWs.onerror = (err) => console.error("Erro WS:", err);
+            }
+
+            // Aguarda abrir
+            if (lobbyWs.readyState === WebSocket.CONNECTING) {
+                const onOpen = () => {
+                    lobbyWs.removeEventListener('open', onOpen);
+                    callback(lobbyWs);
+                };
+                lobbyWs.addEventListener('open', onOpen);
+            } else if (lobbyWs.readyState === WebSocket.OPEN) {
+                callback(lobbyWs);
+            } else {
+                alert("Servidor indisponível. Verifique as Opções.");
+            }
         }
 
         function handleLobbyMessage(msg) {
@@ -270,7 +263,7 @@
                     alert(msg.message);
                     break;
                 case 'host_disconnected':
-                    alert("O Host fechou a sala.");
+                    alert("O Host saiu.");
                     showMenu('main-menu');
                     break;
             }
@@ -297,94 +290,47 @@
                 if (!p.ready) allReady = false;
             });
 
-            // Host só inicia se todos estiverem prontos
             if (isHost) {
                 const btnStart = document.getElementById('btn-start');
                 btnStart.style.display = 'block';
-                btnStart.disabled = !allReady;
+                btnStart.disabled = !allReady || players.length < 2;
                 btnStart.style.opacity = btnStart.disabled ? "0.5" : "1";
             }
         }
 
         function lobbyCreateRoom() {
-            if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
             isContinuing = false;
-            const ws = getLobbyWs();
-            if (!ws) return; // Proteção contra crash se a URL for inválida
-            
-            const sendCreate = () => {
-                console.log("Enviando pedido de criação de sala...");
-                ws.send(JSON.stringify({
-                    type: 'create_room',
-                    payload: { id: PLAYER_ID, name: playerNickname }
-                }));
-            };
-
-            if (ws.readyState === WebSocket.OPEN) sendCreate();
-            else if (ws.readyState === WebSocket.CONNECTING) {
-                const oldOpen = ws.onopen;
-                ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendCreate(); };
-            } else {
-                alert("O servidor está offline ou a URL está incorreta.");
-            }
+            connectLobby((ws) => ws.send(JSON.stringify({
+                type: 'create_room', payload: { id: PLAYER_ID, name: playerNickname }
+            })));
         }
 
         function lobbyContinueRoom() {
-            if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
             isContinuing = true;
-            const ws = getLobbyWs();
-            if (!ws) return;
-            
-            const sendCreate = () => {
-                console.log("Enviando pedido de continuação de sala...");
-                ws.send(JSON.stringify({
-                    type: 'create_room',
-                    payload: { id: PLAYER_ID, name: playerNickname }
-                }));
-            };
-
-            if (ws.readyState === WebSocket.OPEN) sendCreate();
-            else if (ws.readyState === WebSocket.CONNECTING) {
-                const oldOpen = ws.onopen;
-                ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendCreate(); };
-            }
+            connectLobby((ws) => ws.send(JSON.stringify({
+                type: 'create_room', payload: { id: PLAYER_ID, name: playerNickname }
+            })));
         }
 
         function lobbyJoinPrompt() {
-            if (!playerNickname) { alert("Defina um apelido primeiro!"); return; }
             const code = prompt("Digite o código da sala:");
-            if (code) {
-                isContinuing = false;
-                const ws = getLobbyWs();
-                if (!ws) return; // Proteção contra crash
-                
-                const sendJoin = () => {
-                    console.log("Enviando pedido de entrada na sala:", code.toUpperCase());
-                    ws.send(JSON.stringify({
-                        type: 'join_room',
-                        code: code.toUpperCase(),
-                        payload: { id: PLAYER_ID, name: playerNickname }
-                    }));
-                };
-
+            if (!code) return;
+            isContinuing = false;
+            connectLobby((ws) => {
+                ws.send(JSON.stringify({
+                    type: 'join_room', code: code.toUpperCase(), payload: { id: PLAYER_ID, name: playerNickname }
+                }));
                 currentRoomCode = code.toUpperCase();
                 isHost = false;
-                if (ws.readyState === WebSocket.OPEN) sendJoin();
-                else if (ws.readyState === WebSocket.CONNECTING) {
-                    const oldOpen = ws.onopen;
-                    ws.onopen = (e) => { if(oldOpen) typeof oldOpen === 'function' && oldOpen(e); sendJoin(); };
-                } else {
-                    alert("Não foi possível conectar ao servidor para entrar na sala.");
-                }
-            }
+            });
         }
 
         function lobbyToggleReady() {
-            lobbyWs.send(JSON.stringify({ type: 'toggle_ready', code: currentRoomCode }));
+            if (lobbyWs) lobbyWs.send(JSON.stringify({ type: 'toggle_ready', code: currentRoomCode }));
         }
 
         function lobbyStartGame() {
-            lobbyWs.send(JSON.stringify({ type: 'start_game', code: currentRoomCode }));
+            if (lobbyWs) lobbyWs.send(JSON.stringify({ type: 'start_game', code: currentRoomCode }));
         }
 
         function lobbyLeave() {
