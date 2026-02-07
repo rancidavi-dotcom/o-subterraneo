@@ -26,7 +26,10 @@ const MIME_TYPES = {
 
 // Cria um servidor HTTP que serve os arquivos do jogo e o WebSocket
 const server = http.createServer((req, res) => {
-    let filePath = '.' + req.url;
+    // Remove parâmetros da URL (como ?mode=new) para encontrar o arquivo correto
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    let filePath = '.' + parsedUrl.pathname;
+    
     if (filePath === './') {
         filePath = './index.html';
     }
