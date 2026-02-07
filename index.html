@@ -187,7 +187,13 @@
             }
             
             console.log("Tentando conectar ao Lobby:", serverUrl);
-            lobbyWs = new WebSocket(serverUrl);
+            try {
+                lobbyWs = new WebSocket(serverUrl);
+            } catch (e) {
+                console.error("Erro fatal ao criar WebSocket:", e);
+                alert("URL de servidor inválida! Corrija nas Opções.\nErro: " + e.message);
+                return null;
+            }
             
             lobbyWs.onopen = () => {
                 console.log("Conectado ao servidor de Lobby!");
